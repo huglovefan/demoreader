@@ -43,6 +43,7 @@ endif
 
 DMDFLAGS += $(mydflags)
 LDCFLAGS += $(mydflags)
+GDCFLAGS += $(mydflags)
 
 demoreader: src/*.d src/*/*.d
 	$(dmd) $(DMDFLAGS) -i -mv=demoreader=src src/main.d -of=$@
