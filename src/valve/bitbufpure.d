@@ -20,7 +20,7 @@ if (__traits(isUnsigned, U))
 	else static if (is(U == ushort)) alias S = short;
 	else static if (is(U == uint  )) alias S = int;
 	else static if (is(U == ulong )) alias S = long;
-	else static assert(0, "no corresponding signed type for '"~U.stringof);
+	else static assert(0, "no corresponding signed type for "~U.stringof);
 
 	debug assert(numbits >= 2 && numbits <= U.sizeof*8);
 
