@@ -19,8 +19,6 @@ __gshared
 	bool g_liveStat;
 	bool g_noWait;
 
-	bool g_playBrokenDemos;
-
 	import demoreader.markfile;
 	Mark*[string] g_marks;
 

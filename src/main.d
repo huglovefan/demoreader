@@ -95,9 +95,6 @@ int main(string[] args)
 	{
 		switch (args[1])
 		{
-			case "-broken":
-				g_playBrokenDemos = true;
-				break;
 			case "-color":
 				g_useColor = true;
 				break;
