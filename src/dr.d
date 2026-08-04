@@ -1518,6 +1518,13 @@ private:
 						log("%s used voice chat", pl.ttyname);
 					}
 
+					if (TRACE1)
+					{
+						printf("   client=%u (%s)\n", fromClient, pl ? pl.ttyname : "?".ptr);
+						printf("   proximity=%u\n", proximity);
+						printf("   data=<%zu bytes>\n", data.length);
+					}
+
 					break;
 				}
 
