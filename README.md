@@ -30,7 +30,7 @@ See **Range syntax** below.
 -   `-l`:		don't read, only list found/matched demo files
 -   `-live`:		continuously parse a demo currently being recorded
 -   `-nowait`:		disable automatic live demo functionality (for scripting)
--   `-steamids`:	include player steamids output
+-   `-steamids`:	include player steamids in output
 -   `-trace`:		include detailed low-level output from parsing
 
 **Developer options:**
