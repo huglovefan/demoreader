@@ -40,7 +40,7 @@ See **Range syntax** below.
 -   `-livestat`:	print debug stats for -live
 -   `-sizestat`:	gather size stat
 -   `-userids`:		include player userids in output
--   `-v`:		verbose output (unused?)
+-   `-v`:		verbose output (useless)
 
 **Range syntax**
 
