@@ -1,0 +1,329 @@
+
+#!new
+#!name=cheater
+
+#[U:1:11118662]   # м ∀ Я N Є 3 и ʞ
+#[U:1:107583691]  # projecting
+#[U:1:245391983]  # Bird_Jesus
+#[U:1:435497158]  # (unprintable)
+#[U:1:1074480574] # dylan
+#[U:1:1126798326] # umad / who?
+#[U:1:1236890408] # egor
+#[U:1:1284398146] # vibin'
+#[U:1:1350890091] # friede
+
+#
+# find players that need to be marked in this file:
+# NOTE may contain duplicate steamids
+#
+# % demoreader -100- | awk '/\[U:1:/ && !/BOT:/ && (/customFiles/ ? !t[$5]++ : 1)'
+#
+
+!new
+!name=G1/stray
+[U:1:1394097485] # yikes
+[U:1:1394352127] # epic gamer #savetf2
+[U:1:1116899965] # UwU!
+[U:1:1420819445] # heat.
+[U:1:1225478292] # Tinder Professional
+
+!new
+!name=G1/qt
+[U:1:1408591871] # qt
+[U:1:1408548877] # qt
+[U:1:1420784847] # qt
+
+#
+# uncategorized possible bots that are on a list already (and therefore aren't very interesting)
+#
+# % demoreader -100- | awk '/\[U:1:/ && !/BOT:/' | listcheck -everything | grep -v 'bots\.list'
+#
+!new
+!name=G1/other
+[U:1:1313247993] # [defcon] pyro the car fixer
+[U:1:1297903859] # [defcon,listupdate] 咖啡Сoffee咖啡
+[U:1:1297437193] # [defcon,listupdate] Hexsist_Sxehist
+[U:1:1296733365] # [defcon] Scout Dom The Black Rasin
+[U:1:1305020082] # [defcon,listupdate] SHARK7  CYREX
+[U:1:1296618867] # [defcon,listupdate] AgentQwas
+[U:1:1313555178] # [defcon,listupdate,qfoxb] Никита
+[U:1:1297206206] # [defcon,listupdate,tf2bd] LVZ | GreenNinjaESP
+[U:1:1313004067] # [defcon,qfoxb] silverangel  ♪♥Nightcore♥
+[U:1:1297186133] # [defcon,listupdate,qfoxb] Midnight
+[U:1:1296810442] # [defcon,listupdate,tf2bd] Ya_Boi_Stalker
+[U:1:1296362369] # [defcon,listupdate] Tang
+[U:1:1297609593] # [defcon,tf2bd] eminik0701
+[U:1:1309484796] # [defcon,listupdate] Rum
+[U:1:1313474483] # [defcon,listupdate,qfoxb] jb24
+
+#
+# waffle bots, most of which are from community search
+#
+# some of these could be copycats/unrelated
+#
+!new
+!name=G1/waffle
+
+[U:1:931702397]  # Waffle-ss   main account                        [seen ingame]
+
+[U:1:430132300]  # Waffle-ss   id/LolBOTLOLkek                     [seen ingame]
+[U:1:1115606844] # Waffle-ss   [MR.o]MR.original BOT               [seen ingame]
+[U:1:1313886083] # Waffle-ss 1 id/test22323                        [seen ingame]
+
+[U:1:1062154762] # Waffle-ss id/HELLBOTmrIriginalExe               [seen ingame]
+[U:1:1313129067] # Waffle-ss 2                                     [seen ingame]
+
+# ## id references other bot's name
+# ## number in name history, same as id/test22323
+# [U:1:1340219815] # Waffle-ss 4
+# [U:1:1340253148] # Waffle-ss 5
+# [U:1:1377653338] # Waffle-ss 11
+# [U:1:1377742302] # Waffle-ss 10
+# [U:1:1377758246] # Waffle-ss 7
+# ## no number
+# [U:1:1377616044] # Waffle-ss ? (between  5 and 11)
+# [U:1:1377660604] # Waffle-ss ? (between 11 and 10)
+# #[U:1:1095651434] # Waffle-ss id/Waffle-ss455725 (not private, could be copycat)
+# #[U:1:1251279609] # Waffle-ss (not private, could be a copycat)
+
+## -----------------------------------------------------------------------------
+
+!new
+!name=G1/mygot
+
+[U:1:45516655]   # [www.myg0t.win]OGBADGER
+[U:1:1008414315] # [www.myg0t.win]OGBADGER
+[U:1:1119102514] # [www.myg0t.win]OGBADGER
+[U:1:1128662518] # [www.myg0t.win]OGBADGER
+[U:1:1197794850] # [www.myg0t.win]OGBADGER
+[U:1:1197876995] # [www.myg0t.win]OGBADGER
+[U:1:1197906926] # [www.myg0t.win]OGBADGER
+[U:1:1197953479] # [www.myg0t.win]OGBADGER
+[U:1:1197987459] # [www.myg0t.win]OGBADGER
+[U:1:1198062750] # [www.myg0t.win]OGBADGER
+[U:1:1198150199] # [www.myg0t.win]OGBADGER
+[U:1:1198252786] # [www.myg0t.win]OGBADGER
+[U:1:1199120918] # [www.myg0t.win]OGBADGER
+
+!new
+!name=G1/mygot
+
+[U:1:103734833] # [g0tb0t]Church-of-myg0t
+[U:1:120645153] # [g0tb0t]Church-of-myg0t
+[U:1:176522703] # [g0tb0t]Church-of-myg0t
+[U:1:244346019] # [g0tb0t]Church-of-myg0t
+[U:1:287361082] # [g0tb0t]Church-of-myg0t
+[U:1:348820694] # [g0tb0t]Church-of-myg0t
+[U:1:372034386] # [g0tb0t]Church-of-myg0t
+[U:1:378147964] # [g0tb0t]Church-of-myg0t
+[U:1:402045240] # [g0tb0t]Church-of-myg0t
+[U:1:409129303] # [g0tb0t]Church-of-myg0t
+[U:1:1007561223] # [g0tb0t]Church-of-myg0t
+[U:1:1023436593] # [g0tb0t]Church-of-myg0t
+[U:1:1024329210] # [g0tb0t]Church-of-myg0t
+[U:1:1103996016] # [g0tb0t]Church-of-myg0t
+[U:1:1104014193] # [g0tb0t]Church-of-myg0t
+[U:1:1104037256] # [g0tb0t]Church-of-myg0t
+[U:1:1104157002] # [g0tb0t]Church-of-myg0t
+[U:1:1104160017] # [g0tb0t]Church-of-myg0t
+[U:1:1104162628] # [g0tb0t]Church-of-myg0t
+[U:1:1104164351] # [g0tb0t]Church-of-myg0t
+[U:1:1104175356] # [g0tb0t]Church-of-myg0t
+[U:1:1104175937] # [g0tb0t]Church-of-myg0t
+[U:1:1104178479] # [g0tb0t]Church-of-myg0t
+[U:1:1104178479] # [g0tb0t]Church-of-myg0t
+[U:1:1104190320] # [g0tb0t]Church-of-myg0t
+[U:1:1104194367] # [g0tb0t]Church-of-myg0t
+[U:1:1104208525] # [g0tb0t]Church-of-myg0t
+[U:1:1104243541] # [g0tb0t]Church-of-myg0t
+[U:1:1104262349] # [g0tb0t]Church-of-myg0t
+[U:1:1104291122] # [g0tb0t]Church-of-myg0t
+[U:1:1104320961] # [g0tb0t]Church-of-myg0t
+[U:1:1104328864] # [g0tb0t]Church-of-myg0t
+[U:1:1104339106] # [g0tb0t]Church-of-myg0t
+[U:1:1104339106] # [g0tb0t]Church-of-myg0t
+[U:1:1104339799] # [g0tb0t]Church-of-myg0t
+[U:1:1104356337] # [g0tb0t]Church-of-myg0t
+[U:1:1118960668] # [g0tb0t]Church-of-myg0t
+[U:1:1119010193] # [g0tb0t]Church-of-myg0t
+[U:1:1119124247] # [g0tb0t]Church-of-myg0t
+[U:1:1119155441] # [g0tb0t]Church-of-myg0t
+[U:1:1128355740] # [g0tb0t]Church-of-myg0t
+[U:1:1128613266] # [g0tb0t]Church-of-myg0t
+[U:1:1128719605] # [g0tb0t]Church-of-myg0t
+[U:1:1128738592] # [g0tb0t]Church-of-myg0t
+[U:1:1128811215] # [g0tb0t]Church-of-myg0t
+[U:1:1128861648] # [g0tb0t]Church-of-myg0t
+[U:1:1128876152] # [g0tb0t]Church-of-myg0t
+[U:1:1132646231] # [g0tb0t]Church-of-myg0t
+[U:1:1132832969] # [g0tb0t]Church-of-myg0t
+[U:1:1132957421] # [g0tb0t]Church-of-myg0t
+[U:1:1172728572] # [g0tb0t]Church-of-myg0t
+[U:1:1197604127] # [g0tb0t]Church-of-myg0t
+[U:1:1197729037] # [g0tb0t]Church-of-myg0t
+[U:1:1197730692] # [g0tb0t]Church-of-myg0t
+[U:1:1197756523] # [g0tb0t]Church-of-myg0t
+[U:1:1197788531] # [g0tb0t]Church-of-myg0t
+[U:1:1197815988] # [g0tb0t]Church-of-myg0t
+[U:1:1197839757] # [g0tb0t]Church-of-myg0t
+[U:1:1197896349] # [g0tb0t]Church-of-myg0t
+[U:1:1197899836] # [g0tb0t]Church-of-myg0t
+[U:1:1197958884] # [g0tb0t]Church-of-myg0t
+[U:1:1197975553] # [g0tb0t]Church-of-myg0t
+[U:1:1197987624] # [g0tb0t]Church-of-myg0t
+[U:1:1198020798] # [g0tb0t]Church-of-myg0t
+[U:1:1198053705] # [g0tb0t]Church-of-myg0t
+[U:1:1198147417] # [g0tb0t]Church-of-myg0t
+[U:1:1198388987] # [g0tb0t]Church-of-myg0t
+[U:1:1198449492] # [g0tb0t]Church-of-myg0t
+[U:1:1199249842] # [g0tb0t]Church-of-myg0t
+[U:1:1271861454] # [g0tb0t]Church-of-myg0t
+
+!new
+!name=G1/magic
+
+[U:1:1296212140] # m4gic
+[U:1:1296220084] # m4gic
+[U:1:1296244535] # m4gic
+[U:1:1296248357] # FluxGigawatt
+[U:1:1296346011] # m4gic
+[U:1:1296440759] # m4gic
+[U:1:1296494062] # m4gic
+[U:1:1296599650] # m4gic
+[U:1:1296674080] # m4gic
+[U:1:1296702271] # m4gic
+[U:1:1296727806] # m4gic
+[U:1:1296746678] # m4gic
+[U:1:1296890002] # m4gic
+[U:1:1297965991] # m4gic
+[U:1:1304632898] # m4gic
+[U:1:1304873563] # m4gic
+[U:1:1305054301] # m4gic
+[U:1:1305121502] # m4gic
+[U:1:1305386101] # m4gic
+[U:1:1309757879] # m4gic
+[U:1:1309830945] # m4gic
+[U:1:1309958638] # m4gic
+[U:1:1309978493] # m4gic
+[U:1:1310055587] # m4gic
+[U:1:1312940240] # m4gic
+[U:1:1312970459] # m4gic
+[U:1:1313333438] # m4gic
+[U:1:1313549502] # m4gic
+[U:1:1313596735] # m4gic
+[U:1:1314116336] # m4gic
+[U:1:1314190560] # m4gic
+[U:1:1314292261] # m4gic
+[U:1:1314305485] # m4gic
+[U:1:1314418837] # m4gic
+[U:1:1314494843] # m4gic
+[U:1:1314510731] # m4gic
+[U:1:1314564264] # m4gic
+[U:1:1314595510] # m4gic
+[U:1:1314666361] # m4gic
+[U:1:1315071063] # m4gic
+[U:1:1313922088] # m4gic
+[U:1:1314815246] # m4gic
+[U:1:1314708215] # m4gic
+[U:1:1313547886] # m4gic
+[U:1:1314874088] # m4gic
+
+#
+# G2
+#
+
+!new
+!name=G2/savetf2
+
+[U:1:103694693] # infZ111 #SaveTF2
+[U:1:113829888] # infZ111 #SaveTF2
+[U:1:116453236] # infZ111 #SaveTF2
+[U:1:157010330] # infZ111 #SaveTF2
+[U:1:1001858013] # infZ111 #SaveTF2
+[U:1:1002022848] # infZ111 #SaveTF2
+[U:1:1002031425] # infZ111 #SaveTF2
+[U:1:1002098410] # infZ111 #SaveTF2
+[U:1:1002106170] # infZ111 #SaveTF2
+[U:1:1002142831] # infZ111 #SaveTF2
+[U:1:1002160963] # infZ111 #SaveTF2
+[U:1:1002164814] # infZ111 #SaveTF2
+[U:1:1002181117] # infZ111 #SaveTF2
+[U:1:1002274368] # infZ111 #SaveTF2
+[U:1:1002292552] # infZ111 #SaveTF2
+[U:1:1002344275] # infZ111 #SaveTF2
+[U:1:1002346104] # infZ111 #SaveTF2
+[U:1:1026045088] # infZ111 #SaveTF2
+[U:1:1199758244] # infZ111 #SaveTF2
+[U:1:1199849845] # infZ111 #SaveTF2
+[U:1:1199926366] # infZ111 #SaveTF2
+[U:1:1199960069] # infZ111 #SaveTF2
+[U:1:1199988673] # infZ111 #SaveTF2
+[U:1:1200045556] # infZ111 #SaveTF2
+
+!new
+!name=G2/namesteal
+
+[U:1:1221739360] # spy guyั
+[U:1:1221941507] # not a normal Emreั
+[U:1:1221942891] # YasinBerkYTBั
+[U:1:1221994197] # pablo.gonzalez.2007ั
+[U:1:1223385595] # Frankdarrin100ั
+[U:1:1223536807] # Lieutenant Muminั
+[U:1:1223572230] # epic gamer girl 420ั
+[U:1:1223660580] # Göt böcüğüั
+[U:1:1223708045] # Mw493ั
+[U:1:1223758053] # velvetkageั
+[U:1:1223796520] # viceั
+[U:1:1223804046] # _D_E_N_I_S_ั
+[U:1:1223832392] # ✘GreedoShotFirst✘ั
+[U:1:1223881667] # williamborrisjohnsonั
+[U:1:1223923685] # JustCallMeHeavyั
+[U:1:1224010080] # liwiั
+[U:1:1224039177] # Leonikaั
+[U:1:1224043957] # ARKTrooperั
+[U:1:1224099271] # yikesั
+[U:1:1224178790] # Pazhekั
+[U:1:1224179133] # elihawk2000ั
+[U:1:1224198358] # Paavoั
+[U:1:1224211752] # Toastyั
+[U:1:1224230825] # spectatorั
+[U:1:1224250394] # 123ั
+[U:1:1224408898] # Dr.MeeM 57.89ั
+[U:1:1224431163] # dolgovdaniil777ั
+[U:1:1224456010] # IceScream342ั
+[U:1:1224473930] # Батюшка ЛЕНИНั
+[U:1:1224565933] # lekksั
+[U:1:1224568117] # Nanachi <3ั
+[U:1:1224614258] # Nanachi <3ั
+[U:1:1224767278] # Gatto Infernoั
+[U:1:1229139333] # Clown expertั
+[U:1:1229231100] # umadั
+[U:1:1229446803] # Aaroniteั
+[U:1:1229455346] # loser36979ั
+[U:1:1229457739] # [RT] HeidESSั
+[U:1:1229541085] # Angelั
+[U:1:1229554739] # ernietegangrimwallั
+[U:1:1229556394] # trueS1lverั
+[U:1:1229584539] # 6 year old shitheadั
+[U:1:1229634585] # DoBrbIu_DImaั
+[U:1:1229650598] # #S_Y_O# 心臓後の叫ั
+[U:1:1229699738] # ❤ Floofie. ❤ rawrั
+[U:1:1229724239] # epic gamer #savetf2ั
+[U:1:1229771862] # 2cm erect ppั
+[U:1:1229774179] # Red13243 | unbox.tfั
+[U:1:1229916542] # scout that likes high spacesั
+[U:1:1230381240] # Shakkariั
+[U:1:1241063928] # staleั
+[U:1:1241143671] # vitoskaletto1996ั
+[U:1:1241155141] # Golombั
+[U:1:1241253704] # ыั
+[U:1:1241265298] # blood corybanticั
+[U:1:1241276708] # Vidyagaemsั
+[U:1:1241291949] # По4еmyTblплачешьั
+[U:1:1241292280] # cyrbั
+[U:1:1241321577] # Slim Bankshotั
+[U:1:1241379209] # Rincewindlั
+[U:1:1241379496] # westside boatdockั
+[U:1:1241407975] # GittyWitty.TTVั
+[U:1:1241652002] # Михаил Ломоносов
+[U:1:1241845612] # caglarulu11ั
