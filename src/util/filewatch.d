@@ -79,8 +79,8 @@ struct FileWatch
 
 			// set max values to make sure the caller thinks it's changed
 			newsb = stat_t.init;
-			newsb.st_size  = stat_t.st_size.max;
-			newsb.st_mtime = stat_t.st_mtime.max;
+			newsb.st_size  = stat_t().st_size.max;
+			newsb.st_mtime = stat_t().st_mtime.max;
 
 			oldsb = sb;
 			sb = newsb;

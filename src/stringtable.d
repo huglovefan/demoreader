@@ -537,7 +537,7 @@ void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries)
 	History!32 hist;
 
 	int entryIndex = -1;
-	int entryIndexBits = cast(int)log2(st.maxEntries);
+	int entryIndexBits = cast(int)log2(double(st.maxEntries));
 
 	foreach (loopIndex; 0..numEntries)
 	{

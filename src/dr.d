@@ -1740,7 +1740,7 @@ private:
 
 					char[]  tableName         = buf.ReadDString();
 					uint    maxEntries        = buf.ReadWord();
-					uint    numEntries        = buf.ReadUBitLong(cast(int)log2(maxEntries)+1);
+					uint    numEntries        = buf.ReadUBitLong(cast(int)log2(double(maxEntries))+1);
 					uint    length            = (header.networkprotocol > 23)
 					/**/                      ? buf.ReadVarInt32()
 					/**/                      : buf.ReadUBitLong(NET_MAX_PAYLOAD_BITS_V23 + 3);
@@ -2537,7 +2537,7 @@ private:
 					case "noclip ON\n":
 						break;
 
-					case null:
+					case "":
 					{
 						// ignore empty messages from server plugins
 						if (arg1 is null && arg2 is null && arg3 is null && arg4 is null)
@@ -3879,7 +3879,6 @@ shared static this() // todo: see if switch would be better
 	}();
 	foreach (kv; t)
 		userMessageToString[kv.value] = kv.key;
-	cast(void)userMessageToString.rehash();
 }
 
 /// https://www.man7.org/linux/man-pages/man3/memfrob.3.html

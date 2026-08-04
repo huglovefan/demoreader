@@ -1,4 +1,4 @@
-dmd ?= dmd -mcpu=native -defaultlib=libphobos2.so -L=-fuse-ld=mold
+dmd ?= dmd -mcpu=native -defaultlib=libphobos2.so
 LDC ?= ldc2 -mcpu=native
 GDC ?= gdc -march=native -fuse-ld=mold
 
