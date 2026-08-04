@@ -36,7 +36,7 @@ See **Range syntax** below.
 **Developer options:**
 
 -   `-broken`: 		try to read some broken demos (unused?)
--   `-debug`:		(defunct)
+-   `-debug`:		run with a debug build, recompiling if necessary
 -   `-json`:		force writing json file
 -   `-livestat`:	print debug stats for -live
 -   `-sizestat`:	gather size stat
