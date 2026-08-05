@@ -11,7 +11,7 @@ the code is from 2022, but (to my surprise) it seemed to still work with demos a
 thanks:
 
 - <https://github.com/ValveSoftware/csgo-demoinfo> (basics of demo parsing)
-- <https://github.com/UncraftedName/UntitledParser> (more complicated event stuff)
+- <https://github.com/UncraftedName/UntitledParser> (more complicated entity stuff)
 - some glances at leaked source code
 
 ### command-line documentation
