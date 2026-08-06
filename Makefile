@@ -44,6 +44,7 @@ GDCFLAGS += $(mydflags)
 
 demoreader: src/*.d src/*/*.d
 	$(dmd) $(DMDFLAGS) -i -mv=demoreader=src src/main.d -of=$@
+	rm -f $@.o
 test:
 	$(dmd) $(DMDFLAGS) -i -mv=demoreader=src -debug -unittest -run src/main.d
 watch:
@@ -51,6 +52,7 @@ watch:
 
 ldc:
 	$(LDC) $(LDCFLAGS) src/*.d src/*/*.d --of=demoreader
+	rm -f demoreader.o
 
 gdc:
 	$(GDC) $(GDCFLAGS) src/*.d src/*/*.d -o demoreader -lsnappy
