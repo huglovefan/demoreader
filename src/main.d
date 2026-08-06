@@ -53,6 +53,7 @@ struct DrMain
 	bool keepgoing;
 	bool listonly;
 	bool verbose;
+	bool pagerWrap;
 	char rangetype = 0;
 	int  rangenum;
 	bool rangerest;
@@ -120,7 +121,20 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 				size_t argidx = (origArgs.length-args.length)+1;
 				auto newargs = origArgs[0..argidx] ~ origArgs[argidx+1..$];
 
-				string pagerCmd = environment.get("DEMOREADER_PAGER", "less -RS");
+				// peep the remaining args for -wrap since we need it here
+				// this way we get it regardless of order
+				if (!drm.pagerWrap)
+					foreach (arg; args[1..$])
+						switch (arg)
+						{
+						case "-wrap":
+							drm.pagerWrap = true;
+							break;
+						default:
+							break;
+						}
+
+				string pagerCmd = environment.get("DEMOREADER_PAGER", drm.pagerWrap ? "less -R" : "less -RS");
 
 				Pid dr, less;
 				try
@@ -184,6 +198,9 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 				break;
 			case "-v":
 				drm.verbose = true;
+				break;
+			case "-wrap":
+				drm.pagerWrap = true;
 				break;
 			default:
 			{

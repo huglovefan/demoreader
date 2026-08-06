@@ -32,6 +32,7 @@ See **Range syntax** below.
 -   `-nowait`:		disable automatic live demo functionality (for scripting)
 -   `-steamids`:	include player steamids in output
 -   `-trace`:		include detailed low-level output from parsing
+-   `-wrap`:		wrap long lines in pager
 
 **Developer options:**
 
