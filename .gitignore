@@ -3,3 +3,4 @@
 /marks.txt
 /searchDirs.txt
 /user.mk
+*.gcda
