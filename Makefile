@@ -1,6 +1,6 @@
 dmd ?= dmd -mcpu=native -defaultlib=libphobos2.so
 LDC ?= ldc2 -mcpu=native
-GDC ?= gdc -march=native -fuse-ld=mold
+GDC ?= gdc -march=native
 
 DMDFLAGS += -g
 LDCFLAGS += -g
@@ -17,9 +17,6 @@ ifneq (,$(opt))
  GDCFLAGS += -O3 -flto=auto -fipa-pta -fdevirtualize-at-ltrans
  # ...
  GDCFLAGS += -fallow-store-data-races
- GDCFLAGS += -fgcse-sm
- GDCFLAGS += -fgcse-las
- GDCFLAGS += -fira-loop-pressure
  GDCFLAGS += -fno-semantic-interposition
  GDCFLAGS += -fvisibility=hidden
  GDCFLAGS += -fno-plt
