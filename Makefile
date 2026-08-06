@@ -19,11 +19,6 @@ ifneq (,$(opt))
  GDCFLAGS += -fallow-store-data-races
  GDCFLAGS += -fno-semantic-interposition
  GDCFLAGS += -fvisibility=hidden
- GDCFLAGS += -fno-plt
- # -funfuck-math
- GDCFLAGS += -ffp-contract=off
- GDCFLAGS += -frounding-math
- GDCFLAGS += -fsignaling-nans
 endif
 ifneq (,$(release))
  DMDFLAGS += -release
