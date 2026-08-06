@@ -38,9 +38,10 @@ ifeq (2,$(pgo))
  GDCFLAGS += -fprofile-use
 endif
 
-DMDFLAGS += $(mydflags)
-LDCFLAGS += $(mydflags)
-GDCFLAGS += $(mydflags)
+-include user.mk
+DMDFLAGS += $(mydflags) $(mydmdflags)
+LDCFLAGS += $(mydflags) $(myldcflags)
+GDCFLAGS += $(mydflags) $(mygdcflags)
 
 demoreader: src/*.d src/*/*.d
 	$(dmd) $(DMDFLAGS) -i -mv=demoreader=src src/main.d -of=$@
