@@ -27,9 +27,13 @@ ifneq (,$(release))
 endif
 
 ifeq (1,$(pgo))
+ LDCFLAGS += -fprofile-generate
  GDCFLAGS += -fprofile-generate
 endif
 ifeq (2,$(pgo))
+ # ldc note: first, run: llvm-profdata merge default_*.profraw -o default.profdata
+ # ldc note2: this seems to be broken for me (breaks D module resolution?)
+ LDCFLAGS += -fprofile-use
  GDCFLAGS += -fprofile-use
 endif
 

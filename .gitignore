@@ -4,3 +4,5 @@
 /searchDirs.txt
 /user.mk
 *.gcda
+*.profdata
+*.profraw
