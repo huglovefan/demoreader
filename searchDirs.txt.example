@@ -1,0 +1,14 @@
+#
+# list directories containing demo files here
+#
+# - to use this file, copy it to "searchDirs.txt"
+#
+# - demoreader uses these paths to look up files when it's given a
+#   range, glob pattern or an empty command line
+#
+# - if the searchDirs file doesn't exist, then no directories will be
+#   searched, and only files given on the command line will be read
+#
+
+# example
+/home/user/.steam/steam/steamapps/common/Team Fortress 2/tf/demos

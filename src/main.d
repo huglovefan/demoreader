@@ -12,6 +12,7 @@ import std.file;
 import std.path;
 import std.process;
 import std.string;
+import std.stdio : File;
 import demoreader.dr;
 import demoreader.util.filewatch;
 import demoreader.util.glob;
@@ -236,36 +237,21 @@ int main(string[] args)
 		args = args[1..$];
 	}
 
-	string steamdir;
-	version(Posix)
-	{
-		steamdir = "~/.steam/steam".expandTilde;
-		enum WINE_DRIVE_Z = "";
-	}
-	else
-	{
-		if (auto home = environment.get("WINEHOMEDIR"))
-		{
-			steamdir = home~"/.steam/steam";
-			if (steamdir.startsWith(`\??\`))
-				steamdir = steamdir[4..$];
-		}
-		else
-		{
-			// was this right?
-			steamdir = "C:/Program Files (x86)/Steam";
-		}
-		enum WINE_DRIVE_Z = "Z:";
-	}
+	string[] searchDirs;
 
-	string gamedir = steamdir~"/steamapps/common/Team Fortress 2/tf";
-	string demodir = gamedir~"/demos";
-
-	string[] searchDirs = [
-		demodir,
-		gamedir,
-		WINE_DRIVE_Z~"/mnt/sdc2/demos",
-	];
+	if ((thisExePath.dirName~"/searchDirs.txt").exists)
+	{
+		foreach (line; File(thisExePath.dirName~"/searchDirs.txt").byLineCopy)
+		{
+			line = line.strip;
+			if (!line.length || line.startsWith('#'))
+				continue;
+			if (line.exists)
+				searchDirs ~= line;
+			else
+				fprintf(stderr, "note: search directory does not exist: %.*s\n", cast(int)line.length, line.ptr);
+		}
+	}
 
 	/*
 	 * files given on the command line?
@@ -373,13 +359,25 @@ int main(string[] args)
 				files ~= path;
 		}
 
+		if (!searchDirs.length)
+		{
+			fprintf(stderr, "demoreader: no file given, no search directories configured\n");
+			exit(1);
+		}
+
+		bool foundAny;
 		foreach (dir; searchDirs)
 		{
-			if (dir.exists)
+			foreach (s; dir.dirEntries("*.dem", SpanMode.shallow))
 			{
-				foreach (s; dir.dirEntries("*.dem", SpanMode.shallow))
-					addFile(s);
+				foundAny = true;
+				addFile(s);
 			}
+		}
+		if (!foundAny)
+		{
+			fprintf(stderr, "demoreader: no demos were found in the search directories\n");
+			exit(1);
 		}
 	}
 
