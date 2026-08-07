@@ -20,6 +20,9 @@ import demoreader.jsonoutput;
 import demoreader.markfile;
 import demoreader.globals;
 
+// ex: --DRT-gcopt=profile:1
+extern(C) __gshared bool rt_cmdline_enabled = true;
+
 extern(C) __gshared string[] rt_options = [
 	"gcopt=cleanup:none",
 	//"gcopt=gc:precise",
@@ -29,7 +32,7 @@ extern(C) __gshared string[] rt_options = [
 	//"gcopt=minPoolSize:8",
 	//"gcopt=maxPoolSize:128",
 	//"gcopt=incPoolSize:8",
-	"gcopt=heapSizeFactor:8",
+	"gcopt=heapSizeFactor:12",
 ];
 
 // defaults:

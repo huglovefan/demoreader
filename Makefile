@@ -13,12 +13,20 @@ ifneq (,$(debug))
 endif
 ifneq (,$(opt))
  DMDFLAGS += -O
- LDCFLAGS += -O3 -flto=thin
- GDCFLAGS += -O3 -flto=auto -fipa-pta -fdevirtualize-at-ltrans
  # ...
+ LDCFLAGS += -O3 -flto=full
+ LDCFLAGS += --frame-pointer=none
+ LDCFLAGS += --fvisibility=hidden
+ # ...
+ GDCFLAGS += -O3 -flto=auto
  GDCFLAGS += -fallow-store-data-races
+ GDCFLAGS += -fdevirtualize-at-ltrans
+ GDCFLAGS += -fipa-pta
  GDCFLAGS += -fno-semantic-interposition
+ GDCFLAGS += -fno-weak-templates
+ GDCFLAGS += -fomit-frame-pointer
  GDCFLAGS += -fvisibility=hidden
+ GDCFLAGS += -static-libphobos
 endif
 ifneq (,$(release))
  DMDFLAGS += -release
@@ -51,7 +59,7 @@ watch:
 	ls src/*.d src/*/*.d | entr -cs 'make -s $(watchtgt)'
 
 ldc:
-	$(LDC) $(LDCFLAGS) src/*.d src/*/*.d --of=demoreader
+	$(LDC) $(LDCFLAGS) -i --mv=demoreader=src src/main.d --of=demoreader
 	rm -f demoreader.o
 
 gdc:
@@ -60,3 +68,8 @@ gdc:
 export WINEDEBUG = -all
 wine:
 	wine dmd -m64 $(DMDFLAGS) -i -mv=demoreader=src src/main.d -of=demoreader.exe
+
+.PHONY: cleanpgo
+cleanpgo:
+	find -name '*.gcda' -exec rm -v {} +
+	rm -fv default*.prof*
