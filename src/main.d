@@ -190,6 +190,9 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 			case "-sizestat":
 				g_sizeStatEnabled = true;
 				break;
+			case "-skipentities":
+				g_skipPacketEntities = true;
+				break;
 			case "-steamids":
 				g_printPlayerSteamIds = true;
 				break;

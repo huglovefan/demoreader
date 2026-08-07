@@ -40,6 +40,7 @@ See **Range syntax** below.
 -   `-json`:		force writing json file
 -   `-livestat`:	print debug stats for -live
 -   `-sizestat`:	gather size stat
+-   `-skipentities`:	skip parsing entity data
 -   `-userids`:		include player userids in output
 -   `-v`:		verbose output (useless)
 

@@ -25,4 +25,6 @@ __gshared
 	bool  g_sizeStatEnabled;
 	real  g_sizeStatTotalDuration = 0;
 	ulong g_sizeStatTotalSize;
+
+	bool g_skipPacketEntities;
 }

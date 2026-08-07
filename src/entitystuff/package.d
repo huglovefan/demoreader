@@ -66,7 +66,13 @@ void parseSvcPacketEntities(bf_read buf)
 			printf("   deltaFrom=%d\n", deltaFrom);
 	}
 
-	int startbit = buf.GetNumBitsRead();
+	uint startbit = buf.GetNumBitsRead();
+
+	if (g_skipPacketEntities)
+	{
+		buf.Seek(startbit+dataLen);
+		return;
+	}
 
 	GameState.Snapshot* oldSnapshot;
 	GameState.Snapshot* newSnapshot;
