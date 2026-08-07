@@ -232,7 +232,7 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 					}
 
 					// unknown option
-					printf("error: unknown option '%.*s'\n", cast(int)args[1].length, args[1].ptr);
+					fprintf(stderr, "error: unknown option '%.*s'\n", cast(int)args[1].length, args[1].ptr);
 					exit(1);
 				}
 				else
@@ -303,7 +303,7 @@ void interpretFileArgs(ref DrMain drm)
 		if (file.exists)
 		{
 			if (!addFileOrDir(file))
-				printf("demoreader: no demo files found in '%s'\n", file.toStringz);
+				fprintf(stderr, "demoreader: no demo files found in '%s'\n", file.toStringz);
 
 			continue;
 		}
@@ -346,7 +346,7 @@ void interpretFileArgs(ref DrMain drm)
 		// file doesn't exist / glob didn't match anything?
 		if (!addedCount)
 		{
-			printf("error: demo file not found: '%.*s'\n", cast(int)file.length, file.ptr);
+			fprintf(stderr, "error: demo file not found: '%.*s'\n", cast(int)file.length, file.ptr);
 			exit(1);
 		}
 	}
