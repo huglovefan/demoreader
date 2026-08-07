@@ -78,6 +78,10 @@ final class DemoReader
 	 */
 	bool         serverNeedsForcedImpliedTeamsWorkaround;
 
+	/// reading a specific type of broken demo that's missing dem_datatables
+	/// this makes entity parsing impossible since we don't get class data
+	bool         isBrokenDemoMissingDataTables;
+
 	pragma(inline, true)
 	{
 		bool serverAllowsSpectators()         { return !isOfficialServer; }
@@ -753,6 +757,7 @@ private:
 				ubyte[] data = br.read!(ubyte[])(size);
 
 				tracePrint();
+				assert(!isBrokenDemoMissingDataTables);
 				handleDataTables(data);
 
 				break;
@@ -778,15 +783,33 @@ private:
 
 			case dem_synctick:
 			{
+				import demoreader.entitystuff : gameState;
+
 				tracePrint();
 
-				// detect broken demos that are missing some of the signon packets
-				enum want = 5;
-				if (signonState != want)
+				if (signonState != 5)
+					printf("-broken demo: got dem_synctick at signonState %u\n", signonState);
+
+				switch (signonState)
 				{
-					printf("-got dem_synctick at signonState %d instead of %d, demo file might be bugged\n",
-						signonState, want);
+				case 3:
+					// these demos are missing dem_datatables so we lack classes, can't parse baselines
+					assert(!gameState.classes.length);
+					assert(!gameState.baseLines.baselines.length);
+					isBrokenDemoMissingDataTables = true;
+					break;
+				case 4:
+				case 5:
+					assert(gameState.classes.length);
+					assert(gameState.baseLines.baselines.length);
+					break;
+				default:
+					assert(0); // haven't seen
 				}
+
+				// Let's craft.
+				if (signonState == 3 || signonState == 4)
+					signonState = 5;
 
 				break;
 			}
@@ -1016,7 +1039,8 @@ private:
 
 				case svc_packetentities:
 				{
-					demoreader.entitystuff.parseSvcPacketEntities(buf);
+					bool shouldParse = !(g_skipPacketEntities || isBrokenDemoMissingDataTables);
+					demoreader.entitystuff.parseSvcPacketEntities(buf, !shouldParse);
 					break;
 				}
 
@@ -1383,6 +1407,12 @@ private:
 							printf("   reliable=true\n");
 					}
 
+					if (!gameState.baseLines.baselines.length)
+					{
+						assert(isBrokenDemoMissingDataTables);
+						break;
+					}
+
 					// test demos with sprays:
 					// listenserver/2022-10-08_05-10-56.dem
 					// listenserver/2022-10-08_05-18-24.dem
@@ -1585,6 +1615,12 @@ private:
 						sbuf.PrintBytes();
 					}
 
+					if (!demoreader.entitystuff.gameState.classes.length)
+					{
+						assert(isBrokenDemoMissingDataTables);
+						break;
+					}
+
 					string classname = demoreader.entitystuff.gameState.classes[classid].name;
 
 					// 2022-11-10_02-13-31_2.dem - bug or feature?
@@ -1781,6 +1817,17 @@ private:
 					/**/                      ? buf.ReadOneBit()
 					/**/                      : false;
 					ubyte[] data              = buf.ReadDBitArray(length);
+
+					if (TRACE1)
+					{
+						printf("   name=%.*s\n", cast(int)tableName.length, tableName.ptr);
+						printf("   maxEntries=%u\n", maxEntries);
+						printf("   numEntries=%u\n", numEntries);
+						printf("   length=%u\n", length);
+						printf("   userDataFixedSize=%u\n", userDataFixedSize);
+						printf("   userDataSizeBits=%u\n", userDataSizeBits);
+						printf("   dataCompressed=%u\n", dataCompressed);
+					}
 
 					// wasn't already created
 					assert(!StringTable.get(tableName));

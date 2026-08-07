@@ -46,7 +46,7 @@ enum nothing = nothing_t.init;
 
 // search: CL_ProcessPacketEntities
 
-void parseSvcPacketEntities(bf_read buf)
+void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 {
 	uint maxEntries     = buf.ReadUBitLong(MAX_EDICT_BITS);
 	bool isDelta        = !!buf.ReadOneBit();
@@ -68,7 +68,7 @@ void parseSvcPacketEntities(bf_read buf)
 
 	uint startbit = buf.GetNumBitsRead();
 
-	if (g_skipPacketEntities)
+	if (readWithoutParsing)
 	{
 		buf.Seek(startbit+dataLen);
 		return;

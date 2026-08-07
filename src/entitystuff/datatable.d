@@ -100,6 +100,8 @@ void parseDataTables(bf_read buf)
 	DataTablesManager.flattenClasses();
 
 	// parse instance baselines now that we're able to do that
+	if (TRACE1)
+		printf("  -> parse the stored instance baselines\n");
 	auto st = StringTable.get("instancebaseline");
 	assert(st, "missing instance baseline string table");
 	foreach (ent; st.entries)
