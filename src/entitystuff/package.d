@@ -138,6 +138,7 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))
@@ -163,6 +164,7 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))
@@ -187,6 +189,7 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 				if (TRACE1)
 				{
 					const(char)* classname = gameState.classes[classid].name.ptr;
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))
@@ -222,6 +225,7 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))
@@ -266,6 +270,7 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))

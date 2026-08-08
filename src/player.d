@@ -19,6 +19,448 @@ private Player.UserInfoSource stringTableUpdateSource(ref const(StringTables) st
 	return stringTables.updateSource.toUserInfoSource;
 }
 
+private alias RemoveReason = Player.RemoveReason;
+private alias UserInfoSource = Player.UserInfoSource;
+private alias DisconnectReason = Player.DisconnectReason;
+
+struct Players
+{
+	private Player*[] slots;
+
+	/// all players seen throughout the game
+	/// accountid -> Player
+	private Player*[uint] seenPlayers;
+
+	void reset()
+	{
+		foreach (sl; slots)
+		{
+			if (sl)
+				sl.onRemoveEntry(RemoveReason.demoEnded, null);
+		}
+		slots = null;
+
+		seenPlayers = null;
+	}
+
+	pragma(inline, true)
+	size_t maxPlayers()
+	{
+		return slots.length;
+	}
+
+	/// check all connected player slots for consistency
+	void check()
+	{
+		foreach (self; slots)
+		{
+			if (!self || self.hasDisconnected)
+				continue;
+
+			foreach (other; slots)
+			{
+				if (!other || other.hasDisconnected || other == self)
+					continue;
+
+				checkNotSame(self, other);
+			}
+		}
+	}
+
+	/// check that it's ok to add this player (there are no pre-existing duplicates)
+	void checkPlayerBeingAdded(Player* self)
+	{
+		debug assert(!self.hasDisconnected); // random sanity check
+
+		foreach (other; slots)
+		{
+			if (!other || other.hasDisconnected)
+				continue;
+
+			debug assert(other != self); // shouldn't have been added to slots yet
+
+			checkNotSame(self, other);
+		}
+	}
+
+	private void checkNotSame(Player* self, Player* other)
+	{
+		// note: ignore guid check for bots (but the other properties should still be unique)
+		if (
+			self.info.userID == other.info.userID ||
+			self.info.name   == other.info.name ||
+			(self.info.guid  == other.info.guid && !self.isBot))
+		{
+			debug
+			{
+				printf("*** duplicate player\n");
+				printf("-slot %u: <%u> %s %s\n", self.slotIndex,  self.info.userID,  self.info.guid.ptr,  self.ttyname);
+				printf("-slot %u: <%u> %s %s\n", other.slotIndex, other.info.userID, other.info.guid.ptr, other.ttyname);
+			}
+			// 2022-10-10_06-47-32.dem
+			// connection closing
+			// new player comes in via connect message before there's any sign of them disconnecting!!!
+			other.hasDisconnected = true;
+		}
+	}
+
+	/// something suggests that these players are on the same team
+	void impliedSameTeam(Player* p1, Player* p2)
+	{
+		if (p1.team == p2.team) // already same (ethereal or physical team)
+			return;
+
+		// sort lower team to p2
+		if (p1.team < p2.team)
+		{
+			Player* tmp = p1;
+			p1 = p2;
+			p2 = tmp;
+		}
+
+		if (p1.team && !p2.team) // one known, one unassigned
+		{
+			p2.team = p1.team;
+		}
+		else // players are on different teams
+		{
+			version(unittest) {} else
+			debug printf("-team conflict: [%s] (%d) and [%s] (%d) expected to be on the same team\n",
+				p1.ttyname, p1.team,
+				p2.ttyname, p2.team);
+			p1.team = 0;
+			p2.team = 0;
+			assert(0, "team conflict");
+		}
+	}
+
+	/// something suggests that these players are on opposite teams
+	static void impliedOppositeTeams(Player* p1, Player* p2)
+	{
+		// sort lower team to p2
+		if (p1.team < p2.team)
+		{
+			Player* tmp = p1;
+			p1 = p2;
+			p2 = tmp;
+		}
+
+		if (p1.team) // not both unassigned
+		{
+			if (p1.team > 1 && p2.team == 0) // one physical, one unassigned
+			{
+				p2.team = p1.team ^ 1; // swap 2 and 3
+			}
+			else if (p1.team == p2.team || p2.team <= 1)
+			// 1. same team
+			// 2. one ethereal, one spectator
+			{
+				version(unittest) {} else
+				debug printf("-team conflict: [%s] (%d) and [%s] (%d) expected to be on opposite teams\n",
+					p1.ttyname, p1.team,
+					p2.ttyname, p2.team);
+				p1.team = 0;
+				p2.team = 0;
+				assert(0, "team conflict");
+			}
+			else version(unittest) // already were on opposite teams
+			{
+				debug assert(p1.team == 2 || p1.team == 3);
+				debug assert(p2.team == 2 || p2.team == 3);
+				debug assert(p1.team != p2.team);
+			}
+		}
+		else version(unittest) // both unassigned, assume we don't know their teams
+		{
+			debug assert(p1.team == 0);
+			debug assert(p2.team == 0);
+		}
+	}
+
+	void createSlots(int maxplayers)
+	{
+		debug assert(!slots);
+		slots = new Player*[maxplayers];
+	}
+
+	/**
+	 * called when userinfo for this player has been created (different userID
+	 *  from the previous one)
+	 */
+	Player* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource, ref const(StringTables) stringTables)
+	{
+		// get old player
+		Player* old = slots[slotIndex];
+
+		// already created by createForConnectingUser()?
+		if (old && old.info.userID == info.userID)
+		{
+			assert(old.userInfoSource == UserInfoSource.manuallyCreatedForConnectingPlayer);
+
+			// "funny sequence" fix (see function comment)
+			old.assureNotDisconnectedDueToUserInfoUpdate();
+
+			if (*info != *old.info)
+			{
+				old.setUserInfo(info, updateSource, this);
+			}
+
+			return old;
+		}
+
+		// checks
+		if (old)
+			assert(old.hasDisconnected); // should've been set
+
+		Player* pl = new Player(slotIndex, info, updateSource, this);
+
+		// tell old player they're being removed
+		if (old)
+		{
+			if (old.steamIdEquals(info.guid.fromStringz))
+				old.onRemoveEntry(RemoveReason.slotReusedSamePlayer, pl);
+			else
+				old.onRemoveEntry(RemoveReason.slotReusedDifferentPlayer, pl);
+		}
+
+		/*
+		 * FIX 2022-08-03_10-31-46_4.dem (and others)
+		 * 
+		 * an early player changes slots, which causes them to appear twice for a moment
+		 * 
+		 * fix by finding the old player and marking it as disconnected
+		 * 
+		 * StringTable will do a consistency check after this so there won't be a duplicate remaining
+		 * 
+		 * current year comment: wouldn't a better fix be to mark all players in
+		 *  the early string table as disconnected, then have it mark the new ones as connected again?
+		 */
+		if (stringTableUpdateSource(stringTables) == UserInfoSource.demStringTables)
+		{
+			foreach (sl; slots)
+			{
+				if (
+					!sl ||
+					sl.hasDisconnected ||
+					sl.userInfoSource != UserInfoSource.svcCreateStringTable ||
+					sl.isBot ||
+					sl.info.guid != info.guid)
+				{
+					continue;
+				}
+
+				printf("-early player moved slots: %s (%u -> %u)\n", sl.ttyname, sl.slotIndex, pl.slotIndex);
+				sl.setDisconnected(DisconnectReason.userInfoRemoved);
+				break;
+			}
+		}
+
+		checkPlayerBeingAdded(pl);
+
+		slots[slotIndex] = pl;
+		recordSeenPlayer(pl);
+
+		return pl;
+	}
+
+	/**
+	 * create the Player for a connecting user
+	 * 
+	 * called by the player_connect_client GameEvent (it often comes before the
+	 *  userinfo update)
+	 */
+	void createForConnectingUser(char[] name, uint index, int userid, char[] networkid)
+	{
+		player_info_t* info = new player_info_t;
+		info.name[0..name.length] = name;
+		info.name[   name.length] = 0;
+		info.userID = userid;
+		info.guid[0..networkid.length] = networkid;
+		info.guid[   networkid.length] = 0;
+
+		Player* pl = new Player(index, info, UserInfoSource.manuallyCreatedForConnectingPlayer, this);
+
+		// remove slot's old player
+		if (Player* old = slots[index])
+		{
+			assert(old.info.userID != userid); // shouldn't be the one being created
+
+			assert(old.hasDisconnected); // should've been set
+
+			if (old.steamIdEquals(networkid))
+				old.onRemoveEntry(RemoveReason.slotReusedSamePlayer, pl);
+			else
+				old.onRemoveEntry(RemoveReason.slotReusedDifferentPlayer, pl);
+		}
+
+		checkPlayerBeingAdded(pl);
+
+		slots[index] = pl;
+		recordSeenPlayer(pl);
+	}
+
+	/**
+	 * called after creating a player
+	 */
+	private void recordSeenPlayer(Player* pl)
+	{
+		assert(slots[pl.slotIndex] == pl); // properly created
+
+		if (pl.isBot)
+			return;
+
+		/*
+		 * call .recreatedForSamePlayer() if we had a player struct for this player before
+		 */
+		if (Player** oldp = pl.accountid in seenPlayers)
+		{
+			auto old = *oldp;
+
+			assert(old != pl);                         // ?
+			assert(old.info.userID != pl.info.userID); // can't happen
+			assert(old.hasDisconnected);               // long dead corpse
+
+			pl.recreatedForSamePlayer(old);
+		}
+
+		/*
+		 * now record the new one in seenPlayers
+		 */
+		seenPlayers[pl.accountid] = pl;
+
+		/*
+		 * give JsonOutput their steamid
+		 */
+		JsonOutput.steamIdSeen(pl.info.guid.fromStringz);
+	}
+
+	Player* getBySlotIndex(int slotIndex, bool force = false)
+	{
+		assert(slots);
+		Player* pl = slots[slotIndex];
+		return (pl && (!pl.hasDisconnected || force)) ? pl : null;
+	}
+
+	Player* getByEntIndex(int entindex, bool force = false)
+	{
+		if (entindex >= 1 && entindex <= slots.length)
+		{
+			Player* pl = slots[entindex-1];
+			return (pl && (!pl.hasDisconnected || force)) ? pl : null;
+		}
+		else
+		{
+			debug printf("-bad entindex %d\n", entindex);
+			//assert(0);
+			return null;
+		}
+	}
+
+	Player* getByUserId(int userid, bool force = false)
+	{
+		assert(slots);
+		foreach (sl; slots)
+		{
+			if (sl && (!sl.hasDisconnected || force) && sl.info.userID == userid)
+				return sl;
+		}
+		return null;
+	}
+
+	Player* getByName(const(char)[] name, bool force = false)
+	{
+		assert(slots);
+		if (!force)
+		{
+			foreach (sl; slots)
+			{
+				if (sl && !sl.hasDisconnected && sl.nameEquals(name))
+					return sl;
+			}
+			return null;
+		}
+		else
+		{
+			/*
+			 * consider also disconnected players, but prefer connected ones
+			 */
+			{
+				Player*[2] foundPlayer;
+				uint[2]    foundCount;
+				foreach (sl; slots)
+				{
+					if (sl && sl.nameEquals(name))
+					{
+						uint type = !!sl.hasDisconnected;
+						if (!foundPlayer[type] || sl.info.userID > foundPlayer[type].info.userID)
+						{
+							foundPlayer[type] = sl;
+						}
+						foundCount[type]++;
+					}
+				}
+				if (foundCount[0])
+				{
+					debug assert(foundCount[0] <= 1); // connected names are unique, checked when adding players
+					return foundPlayer[0];
+				}
+				if (foundCount[1])
+				{
+					// FIXED: now returns the higher userid
+					// but is it guaranteed to be more recent?
+					// should store and compare ticks instead?
+					debug
+					{
+						if (foundCount[1] > 1)
+						{
+							printf("-note: more than one disconnected player matches '%s', returning higher userid\n", name.ptr);
+						}
+					}
+					//assert(foundCount[1] <= 1, "found more than one matching player");
+					return foundPlayer[1];
+				}
+			}
+
+			/*
+			 * search historical players in case their player slot was already recycled
+			 */
+			{
+				Player* found;
+				int     count;
+				foreach (pl; seenPlayers)
+				{
+					if (pl.hasDisconnected && pl.nameEquals(name))
+					{
+						found = pl;
+						count++;
+					}
+				}
+				if (count)
+				{
+					assert(count <= 1, "found more than one matching player");
+					return found;
+				}
+			}
+
+			/*
+			 * not found!!1
+			 */
+			return null;
+		}
+	}
+
+	Player* getBySteamId(const(char)[] steamid)
+	{
+		assert(slots);
+		foreach (sl; slots)
+		{
+			if (sl && !sl.hasDisconnected && sl.steamIdEquals(steamid))
+				return sl;
+		}
+		return null;
+	}
+}
+
 struct Player
 {
 	const int      slotIndex;       /// 0-based slot number
@@ -36,96 +478,14 @@ struct Player
 		UserInfoSource userInfoSource; /// where .info came from
 	}
 
-	static
-	{
-		private Player*[] slots;
-
-		/// all players seen throughout the game
-		/// accountid -> Player
-		private Player*[uint] seenPlayers;
-
-		void reset()
-		{
-			foreach (sl; slots)
-			{
-				if (sl)
-					sl.onRemoveEntry(RemoveReason.demoEnded, null);
-			}
-			slots = null;
-
-			seenPlayers = null;
-		}
-
-		pragma(inline, true)
-		static size_t maxPlayers()
-		{
-			return slots.length;
-		}
-
-		/// check all connected player slots for consistency
-		void check()
-		{
-			foreach (self; slots)
-			{
-				if (!self || self.hasDisconnected)
-					continue;
-
-				foreach (other; slots)
-				{
-					if (!other || other.hasDisconnected || other == self)
-						continue;
-
-					checkNotSame(self, other);
-				}
-			}
-		}
-
-		/// check that it's ok to add this player (there are no pre-existing duplicates)
-		void checkPlayerBeingAdded(Player* self)
-		{
-			debug assert(!self.hasDisconnected); // random sanity check
-
-			foreach (other; slots)
-			{
-				if (!other || other.hasDisconnected)
-					continue;
-
-				debug assert(other != self); // shouldn't have been added to slots yet
-
-				checkNotSame(self, other);
-			}
-		}
-
-		private void checkNotSame(Player* self, Player* other)
-		{
-			// note: ignore guid check for bots (but the other properties should still be unique)
-			if (
-				self.info.userID == other.info.userID ||
-				self.info.name   == other.info.name ||
-				(self.info.guid  == other.info.guid && !self.isBot))
-			{
-				debug
-				{
-					printf("*** duplicate player\n");
-					printf("-slot %u: <%u> %s %s\n", self.slotIndex,  self.info.userID,  self.info.guid.ptr,  self.ttyname);
-					printf("-slot %u: <%u> %s %s\n", other.slotIndex, other.info.userID, other.info.guid.ptr, other.ttyname);
-				}
-				// 2022-10-10_06-47-32.dem
-				// connection closing
-				// new player comes in via connect message before there's any sign of them disconnecting!!!
-				other.hasDisconnected = true;
-			}
-		}
-	}
-
 	this(int slotIndex_)
 	{
 		slotIndex = slotIndex_;
 	}
-	this(int slotIndex_, player_info_t* info_, UserInfoSource updateSource)
+	this(int slotIndex_, player_info_t* info_, UserInfoSource updateSource, ref const(Players) players)
 	{
 		slotIndex = slotIndex_;
-		setUserInfo(info_, updateSource);
+		setUserInfo(info_, updateSource, players);
 	}
 
 	/// true if this player is simulated by the server
@@ -208,35 +568,6 @@ struct Player
 		}
 	}
 
-	/// something suggests that these players are on the same team
-	static void impliedSameTeam(Player* p1, Player* p2)
-	{
-		if (p1.team == p2.team) // already same (ethereal or physical team)
-			return;
-
-		// sort lower team to p2
-		if (p1.team < p2.team)
-		{
-			Player* tmp = p1;
-			p1 = p2;
-			p2 = tmp;
-		}
-
-		if (p1.team && !p2.team) // one known, one unassigned
-		{
-			p2.team = p1.team;
-		}
-		else // players are on different teams
-		{
-			version(unittest) {} else
-			debug printf("-team conflict: [%s] (%d) and [%s] (%d) expected to be on the same team\n",
-				p1.ttyname, p1.team,
-				p2.ttyname, p2.team);
-			p1.team = 0;
-			p2.team = 0;
-			assert(0, "team conflict");
-		}
-	}
 	unittest
 	{
 		Player pl1;
@@ -275,48 +606,6 @@ struct Player
 		assert(!thrown(3, 3)); assert(fixup(3, 3));
 	}
 
-	/// something suggests that these players are on opposite teams
-	static void impliedOppositeTeams(Player* p1, Player* p2)
-	{
-		// sort lower team to p2
-		if (p1.team < p2.team)
-		{
-			Player* tmp = p1;
-			p1 = p2;
-			p2 = tmp;
-		}
-
-		if (p1.team) // not both unassigned
-		{
-			if (p1.team > 1 && p2.team == 0) // one physical, one unassigned
-			{
-				p2.team = p1.team ^ 1; // swap 2 and 3
-			}
-			else if (p1.team == p2.team || p2.team <= 1)
-			// 1. same team
-			// 2. one ethereal, one spectator
-			{
-				version(unittest) {} else
-				debug printf("-team conflict: [%s] (%d) and [%s] (%d) expected to be on opposite teams\n",
-					p1.ttyname, p1.team,
-					p2.ttyname, p2.team);
-				p1.team = 0;
-				p2.team = 0;
-				assert(0, "team conflict");
-			}
-			else version(unittest) // already were on opposite teams
-			{
-				debug assert(p1.team == 2 || p1.team == 3);
-				debug assert(p2.team == 2 || p2.team == 3);
-				debug assert(p1.team != p2.team);
-			}
-		}
-		else version(unittest) // both unassigned, assume we don't know their teams
-		{
-			debug assert(p1.team == 0);
-			debug assert(p2.team == 0);
-		}
-	}
 	unittest
 	{
 		Player pl1;
@@ -430,7 +719,7 @@ struct Player
 		manuallyCreatedForConnectingPlayer, /// manually created
 		none = -1,
 	}
-	void setUserInfo(player_info_t* newinfo, UserInfoSource source)
+	void setUserInfo(player_info_t* newinfo, UserInfoSource source, ref const(Players) players)
 	{
 		assert(newinfo);
 
@@ -465,7 +754,7 @@ struct Player
 				printf("-player changed name: %s -> %s\n", oldinfo.name.ptr, ttyname);
 
 				// re-check: connected names are unique
-				foreach (sl; slots)
+				foreach (sl; players.slots)
 				{
 					if (sl && sl != &this && !sl.hasDisconnected)
 						assert(sl.info.name != this.info.name);
@@ -686,290 +975,6 @@ struct Player
 		debug assert(steamid.ptr[steamid.length] == 0); // null-terminated
 
 		return info.guid.ptr[0..steamid.length+1] == steamid.ptr[0..steamid.length+1];
-	}
-
-static:
-	void createSlots(int maxplayers)
-	{
-		debug assert(!slots);
-		slots = new Player*[maxplayers];
-	}
-
-	/**
-	 * called when userinfo for this player has been created (different userID
-	 *  from the previous one)
-	 */
-	Player* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource, ref const(StringTables) stringTables)
-	{
-		// get old player
-		Player* old = slots[slotIndex];
-
-		// already created by createForConnectingUser()?
-		if (old && old.info.userID == info.userID)
-		{
-			assert(old.userInfoSource == UserInfoSource.manuallyCreatedForConnectingPlayer);
-
-			// "funny sequence" fix (see function comment)
-			old.assureNotDisconnectedDueToUserInfoUpdate();
-
-			if (*info != *old.info)
-			{
-				old.setUserInfo(info, updateSource);
-			}
-
-			return old;
-		}
-
-		// checks
-		if (old)
-			assert(old.hasDisconnected); // should've been set
-
-		Player* pl = new Player(slotIndex, info, updateSource);
-
-		// tell old player they're being removed
-		if (old)
-		{
-			if (old.steamIdEquals(info.guid.fromStringz))
-				old.onRemoveEntry(RemoveReason.slotReusedSamePlayer, pl);
-			else
-				old.onRemoveEntry(RemoveReason.slotReusedDifferentPlayer, pl);
-		}
-
-		/*
-		 * FIX 2022-08-03_10-31-46_4.dem (and others)
-		 * 
-		 * an early player changes slots, which causes them to appear twice for a moment
-		 * 
-		 * fix by finding the old player and marking it as disconnected
-		 * 
-		 * StringTable will do a consistency check after this so there won't be a duplicate remaining
-		 * 
-		 * current year comment: wouldn't a better fix be to mark all players in
-		 *  the early string table as disconnected, then have it mark the new ones as connected again?
-		 */
-		if (stringTableUpdateSource(stringTables) == UserInfoSource.demStringTables)
-		{
-			foreach (sl; slots)
-			{
-				if (
-					!sl ||
-					sl.hasDisconnected ||
-					sl.userInfoSource != UserInfoSource.svcCreateStringTable ||
-					sl.isBot ||
-					sl.info.guid != info.guid)
-				{
-					continue;
-				}
-
-				printf("-early player moved slots: %s (%u -> %u)\n", sl.ttyname, sl.slotIndex, pl.slotIndex);
-				sl.setDisconnected(DisconnectReason.userInfoRemoved);
-				break;
-			}
-		}
-
-		Player.checkPlayerBeingAdded(pl);
-
-		slots[slotIndex] = pl;
-		recordSeenPlayer(pl);
-
-		return pl;
-	}
-
-	/**
-	 * create the Player for a connecting user
-	 * 
-	 * called by the player_connect_client GameEvent (it often comes before the
-	 *  userinfo update)
-	 */
-	void createForConnectingUser(char[] name, uint index, int userid, char[] networkid)
-	{
-		player_info_t* info = new player_info_t;
-		info.name[0..name.length] = name;
-		info.name[   name.length] = 0;
-		info.userID = userid;
-		info.guid[0..networkid.length] = networkid;
-		info.guid[   networkid.length] = 0;
-
-		Player* pl = new Player(index, info, UserInfoSource.manuallyCreatedForConnectingPlayer);
-
-		// remove slot's old player
-		if (Player* old = slots[index])
-		{
-			assert(old.info.userID != userid); // shouldn't be the one being created
-
-			assert(old.hasDisconnected); // should've been set
-
-			if (old.steamIdEquals(networkid))
-				old.onRemoveEntry(RemoveReason.slotReusedSamePlayer, pl);
-			else
-				old.onRemoveEntry(RemoveReason.slotReusedDifferentPlayer, pl);
-		}
-
-		Player.checkPlayerBeingAdded(pl);
-
-		slots[index] = pl;
-		recordSeenPlayer(pl);
-	}
-
-	/**
-	 * called after creating a player
-	 */
-	private static void recordSeenPlayer(Player* pl)
-	{
-		assert(slots[pl.slotIndex] == pl); // properly created
-
-		if (pl.isBot)
-			return;
-
-		/*
-		 * call .recreatedForSamePlayer() if we had a player struct for this player before
-		 */
-		if (Player** oldp = pl.accountid in seenPlayers)
-		{
-			auto old = *oldp;
-
-			assert(old != pl);                         // ?
-			assert(old.info.userID != pl.info.userID); // can't happen
-			assert(old.hasDisconnected);               // long dead corpse
-
-			pl.recreatedForSamePlayer(old);
-		}
-
-		/*
-		 * now record the new one in seenPlayers
-		 */
-		seenPlayers[pl.accountid] = pl;
-
-		/*
-		 * give JsonOutput their steamid
-		 */
-		JsonOutput.steamIdSeen(pl.info.guid.fromStringz);
-	}
-
-	Player* getBySlotIndex(int slotIndex, bool force = false)
-	{
-		assert(slots);
-		Player* pl = slots[slotIndex];
-		return (pl && (!pl.hasDisconnected || force)) ? pl : null;
-	}
-
-	Player* getByEntIndex(int entindex, bool force = false)
-	{
-		if (entindex >= 1 && entindex <= slots.length)
-		{
-			Player* pl = slots[entindex-1];
-			return (pl && (!pl.hasDisconnected || force)) ? pl : null;
-		}
-		else
-		{
-			debug printf("-bad entindex %d\n", entindex);
-			//assert(0);
-			return null;
-		}
-	}
-
-	Player* getByUserId(int userid, bool force = false)
-	{
-		assert(slots);
-		foreach (sl; slots)
-		{
-			if (sl && (!sl.hasDisconnected || force) && sl.info.userID == userid)
-				return sl;
-		}
-		return null;
-	}
-
-	Player* getByName(const(char)[] name, bool force = false)
-	{
-		assert(slots);
-		if (!force)
-		{
-			foreach (sl; slots)
-			{
-				if (sl && !sl.hasDisconnected && sl.nameEquals(name))
-					return sl;
-			}
-			return null;
-		}
-		else
-		{
-			/*
-			 * consider also disconnected players, but prefer connected ones
-			 */
-			{
-				Player*[2] foundPlayer;
-				uint[2]    foundCount;
-				foreach (sl; slots)
-				{
-					if (sl && sl.nameEquals(name))
-					{
-						uint type = !!sl.hasDisconnected;
-						if (!foundPlayer[type] || sl.info.userID > foundPlayer[type].info.userID)
-						{
-							foundPlayer[type] = sl;
-						}
-						foundCount[type]++;
-					}
-				}
-				if (foundCount[0])
-				{
-					debug assert(foundCount[0] <= 1); // connected names are unique, checked when adding players
-					return foundPlayer[0];
-				}
-				if (foundCount[1])
-				{
-					// FIXED: now returns the higher userid
-					// but is it guaranteed to be more recent?
-					// should store and compare ticks instead?
-					debug
-					{
-						if (foundCount[1] > 1)
-						{
-							printf("-note: more than one disconnected player matches '%s', returning higher userid\n", name.ptr);
-						}
-					}
-					//assert(foundCount[1] <= 1, "found more than one matching player");
-					return foundPlayer[1];
-				}
-			}
-
-			/*
-			 * search historical players in case their player slot was already recycled
-			 */
-			{
-				Player* found;
-				int     count;
-				foreach (pl; seenPlayers)
-				{
-					if (pl.hasDisconnected && pl.nameEquals(name))
-					{
-						found = pl;
-						count++;
-					}
-				}
-				if (count)
-				{
-					assert(count <= 1, "found more than one matching player");
-					return found;
-				}
-			}
-
-			/*
-			 * not found!!1
-			 */
-			return null;
-		}
-	}
-
-	Player* getBySteamId(const(char)[] steamid)
-	{
-		assert(slots);
-		foreach (sl; slots)
-		{
-			if (sl && !sl.hasDisconnected && sl.steamIdEquals(steamid))
-				return sl;
-		}
-		return null;
 	}
 }
 

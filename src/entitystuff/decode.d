@@ -139,6 +139,7 @@ if (is(T : EntityProperty!U, U))
 
 						const(char)* name;
 
+						static if (0) // TODO
 						if (!name && entindex >= 1 && entindex <= Player.maxPlayers)
 						{
 							Player* pl = Player.getByEntIndex(entindex);
@@ -218,6 +219,7 @@ if (is(T : EntityProperty!U, U))
 						classname = gameState.classes[ent.classid].name.ptr;
 						pvs = ent.inPvs;
 					}
+					static if (0) // TODO
 					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
 						if (Player* pl = Player.getByEntIndex(entindex))

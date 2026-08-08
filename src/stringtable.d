@@ -73,11 +73,11 @@ struct StringTable
 
 	/// check the table for consistency
 	/// called after we finish creating/adding/updating all entries in a packet
-	void check()
+	void check(ref Players players)
 	{
 		assert(entries.length <= maxEntries);
 		if (name == "userinfo")
-			Player.check();
+			players.check();
 	}
 }
 
@@ -86,7 +86,7 @@ struct StringTableEntry
 	char[]  name;
 	ubyte[] data;
 
-	void setData(ubyte[] newdata, StringTable* st, int entryIndex, StringTableSource updateSource, ref const(StringTables) stringTables)
+	void setData(ubyte[] newdata, StringTable* st, int entryIndex, StringTableSource updateSource, ref Players players, ref const(StringTables) stringTables)
 	{
 		ubyte[] olddata = data;
 		data = newdata;
@@ -220,9 +220,9 @@ struct StringTableEntry
 				// skip updates with the same data
 				if (newdata != olddata)
 				{
-					Player* pl = Player.getBySlotIndex(entryIndex, /* force */ true);
+					Player* pl = players.getBySlotIndex(entryIndex, /* force */ true);
 					assert(pl);
-					pl.setUserInfo(newuser, updateSource.toUserInfoSource);
+					pl.setUserInfo(newuser, updateSource.toUserInfoSource, players);
 
 					newuser.checkUpdate(olduser);
 				}
@@ -235,7 +235,7 @@ struct StringTableEntry
 				// old userid gone?
 				if (olduser && (!newuser || newuser.userID != olduser.userID))
 				{
-					oldPl = Player.getBySlotIndex(entryIndex, /* force */ true);
+					oldPl = players.getBySlotIndex(entryIndex, /* force */ true);
 					assert(oldPl);
 					oldPl.setDisconnected(Player.DisconnectReason.userInfoRemoved);
 				}
@@ -246,7 +246,7 @@ struct StringTableEntry
 					// note: can be the same as oldPl if it existed already
 					// (was created early by the join message thing)
 					// in that case, this works like a userinfo update
-					newPl = Player.createForNewUserInfo(entryIndex, newuser, updateSource.toUserInfoSource, stringTables);
+					newPl = players.createForNewUserInfo(entryIndex, newuser, updateSource.toUserInfoSource, stringTables);
 					assert(newPl);
 					newuser.checkCreate();
 				}
@@ -271,7 +271,7 @@ struct StringTableEntry
  * 
  * see: CNetworkStringTable::ParseUpdate in engine/networkstringtable.cpp
  */
-void readCreateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref StringTables stringTables)
+void readCreateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref Players players, ref StringTables stringTables)
 {
 	enum print = false;
 	enum printjoin = false;
@@ -373,7 +373,7 @@ void readCreateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref S
 			printf("    %s[%u]: new: %s\n", st.name.ptr, entryIndex, itemName.ptr);
 
 		StringTable.Entry* ste = new StringTable.Entry(itemName);
-		ste.setData(itemData, st, entryIndex, StringTableSource.svcCreateStringTable, stringTables);
+		ste.setData(itemData, st, entryIndex, StringTableSource.svcCreateStringTable, players, stringTables);
 		stes ~= ste;
 
 		hist.add(itemName);
@@ -381,7 +381,7 @@ void readCreateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref S
 
 	st.entries = stes[];
 	assert(st.entries.length == numEntries);
-	st.check();
+	st.check(players);
 }
 
 /**
@@ -389,7 +389,7 @@ void readCreateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref S
  * 
  * see: CNetworkStringTable::ReadStringTable in engine/networkstringtable.cpp
  */
-void readDemoStringTables(bf_read buf, ref StringTables stringTables)
+void readDemoStringTables(bf_read buf, ref Players players, ref StringTables stringTables)
 {
 	enum print = false;
 	enum printhdr = false; // print only header
@@ -459,7 +459,7 @@ void readDemoStringTables(bf_read buf, ref StringTables stringTables)
 				if (print)
 					printf("    [%u/%u] %s (%u bytes)\n", entryIndex+1, numEntries, entryName.ptr, userDataSize);
 
-				ste.setData(data, st, entryIndex, StringTableSource.demStringTables, stringTables);
+				ste.setData(data, st, entryIndex, StringTableSource.demStringTables, players, stringTables);
 			}
 			else
 			{
@@ -467,7 +467,7 @@ void readDemoStringTables(bf_read buf, ref StringTables stringTables)
 					printf("    [%u/%u] %s (no data)\n", entryIndex+1, numEntries, entryName.ptr);
 
 				// no data means empty data
-				ste.setData(null, st, entryIndex, StringTableSource.demStringTables, stringTables);
+				ste.setData(null, st, entryIndex, StringTableSource.demStringTables, players, stringTables);
 			}
 		}
 
@@ -510,7 +510,7 @@ void readDemoStringTables(bf_read buf, ref StringTables stringTables)
 
 		st.entries = stes[];
 		assert(st.entries.length == numEntries+cast(uint)max(cast(int)numClientEntries-clientIgnoreCnt, 0));
-		st.check();
+		st.check(players);
 	}
 }
 
@@ -519,7 +519,7 @@ void readDemoStringTables(bf_read buf, ref StringTables stringTables)
  * 
  * see: CNetworkStringTable::ParseUpdate in engine/networkstringtable.cpp
  */
-void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref StringTables stringTables)
+void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref Players players, ref StringTables stringTables)
 {
 	enum print = false;
 	enum printhdr = false;
@@ -675,7 +675,7 @@ void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref Strin
 				static if (print)
 					printed = true;
 			}
-			ste.setData(itemData, st, entryIndex, StringTableSource.svcUpdateStringTable, stringTables);
+			ste.setData(itemData, st, entryIndex, StringTableSource.svcUpdateStringTable, players, stringTables);
 
 			static if (print)
 			{
@@ -698,14 +698,14 @@ void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries, ref Strin
 
 			assert(entryIndex == st.entries.length);
 			StringTableEntry* ste = new StringTableEntry(itemName);
-			ste.setData(itemData, st, entryIndex, StringTableSource.svcUpdateStringTable, stringTables);
+			ste.setData(itemData, st, entryIndex, StringTableSource.svcUpdateStringTable, players, stringTables);
 			st.entries ~= ste;
 		}
 
 		hist.add(itemName);
 	}
 
-	st.check();
+	st.check(players);
 }
 
 /**
