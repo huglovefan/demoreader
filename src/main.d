@@ -12,12 +12,16 @@ import std.file;
 import std.path;
 import std.process;
 import std.string;
+import std.stdio : File;
 import demoreader.dr;
 import demoreader.util.filewatch;
 import demoreader.util.glob;
 import demoreader.jsonoutput;
 import demoreader.markfile;
 import demoreader.globals;
+
+// ex: --DRT-gcopt=profile:1
+extern(C) __gshared bool rt_cmdline_enabled = true;
 
 extern(C) __gshared string[] rt_options = [
 	"gcopt=cleanup:none",
@@ -28,7 +32,7 @@ extern(C) __gshared string[] rt_options = [
 	//"gcopt=minPoolSize:8",
 	//"gcopt=maxPoolSize:128",
 	//"gcopt=incPoolSize:8",
-	"gcopt=heapSizeFactor:8",
+	"gcopt=heapSizeFactor:12",
 ];
 
 // defaults:
@@ -47,49 +51,35 @@ version(Windows)
 	int isatty(int) { return 1; }
 }
 
-int main(string[] args)
+struct DrMain
 {
-	const origArgs = args;
-	string[] files;
-	bool verbose;
-	bool listonly;
 	bool keepgoing;
-
+	bool listonly;
+	bool verbose;
+	bool pagerWrap;
 	char rangetype = 0;
 	int  rangenum;
 	bool rangerest;
+	string[] files;
+	string[] searchDirs;
 
-	version(Posix)
-	{
-		if ("_DEMOREADER_IN_PAGER" in environment)
-		{
-			g_useColor = true;
+	ErrorInfo[] errordemos;
+	bool lastDemoWasLive; /// true if the last demo in the loop was still being written
+	uint demosReadCnt;    /// demos seen by the loop
+	bool fatalError;      /// got an exception while reading
+}
 
-			// consistency
-			setvbuf(stdout, null, _IOLBF, 0);
-			setvbuf(stderr, null, _IOLBF, 0);
+struct ErrorInfo
+{
+	string filename;
+	string errfile;
+	size_t errline;
+	string errmsg;
+}
 
-			// ignore SIGPIPE (pager exited before all output was written)
-			extern(C) static void handler(int)
-			{
-				_exit(0);
-			}
-			signal(SIGPIPE, &handler);
-		}
-		else
-		{
-			if (isatty(1))
-				g_useColor = true;
-			else
-				g_useColor = false;
-		}
-	}
-	else
-	{
-		g_useColor = false;
-	}
-
-	g_marks = parseMarks(thisExePath.dirName~"/marks.txt");
+void parseCommandLine(ref DrMain drm, ref string[] args)
+{
+	const origArgs = args;
 
 	while (args.length > 1)
 	{
@@ -134,7 +124,20 @@ int main(string[] args)
 				size_t argidx = (origArgs.length-args.length)+1;
 				auto newargs = origArgs[0..argidx] ~ origArgs[argidx+1..$];
 
-				string pagerCmd = environment.get("DEMOREADER_PAGER", "less -RS");
+				// peep the remaining args for -wrap since we need it here
+				// this way we get it regardless of order
+				if (!drm.pagerWrap)
+					foreach (arg; args[1..$])
+						switch (arg)
+						{
+						case "-wrap":
+							drm.pagerWrap = true;
+							break;
+						default:
+							break;
+						}
+
+				string pagerCmd = environment.get("DEMOREADER_PAGER", drm.pagerWrap ? "less -R" : "less -RS");
 
 				Pid dr, less;
 				try
@@ -170,10 +173,10 @@ int main(string[] args)
 				g_jsonFlag = true;
 				break;
 			case "-keepgoing":
-				keepgoing = true;
+				drm.keepgoing = true;
 				break;
 			case "-l":
-				listonly = true;
+				drm.listonly = true;
 				break;
 			case "-live":
 				g_forceLive = true;
@@ -187,6 +190,9 @@ int main(string[] args)
 			case "-sizestat":
 				g_sizeStatEnabled = true;
 				break;
+			case "-skipentities":
+				g_skipPacketEntities = true;
+				break;
 			case "-steamids":
 				g_printPlayerSteamIds = true;
 				break;
@@ -197,7 +203,10 @@ int main(string[] args)
 				g_printPlayerUserIds = true;
 				break;
 			case "-v":
-				verbose = true;
+				drm.verbose = true;
+				break;
+			case "-wrap":
+				drm.pagerWrap = true;
 				break;
 			default:
 			{
@@ -207,13 +216,13 @@ int main(string[] args)
 					// range thing?
 					if (args[1].length >= 2 && args[1][1] >= '0' && args[1][1] <= '9')
 					{
-						rangetype = args[1][0];
+						drm.rangetype = args[1][0];
 
 						if (args[1][$-1] == '-')
-							rangerest = true;
+							drm.rangerest = true;
 
-						rangenum = atoi((args[1][1..$]~'\0').ptr);
-						if (!rangenum)
+						drm.rangenum = atoi((args[1][1..$]~'\0').ptr);
+						if (!drm.rangenum)
 						{
 							fprintf(stderr, "error: range thing is 1-based, 0 has no meaning\n");
 							exit(1);
@@ -223,222 +232,178 @@ int main(string[] args)
 					}
 
 					// unknown option
-					printf("error: unknown option '%.*s'\n", cast(int)args[1].length, args[1].ptr);
+					fprintf(stderr, "error: unknown option '%.*s'\n", cast(int)args[1].length, args[1].ptr);
 					exit(1);
 				}
 				else
 				{
 					// doesn't look like an option, so it's a file
-					files ~= args[1];
+					drm.files ~= args[1];
 				}
 			}
 		}
 		args = args[1..$];
 	}
+}
 
-	string steamdir;
-	version(Posix)
+void readSearchDirsConfig(ref DrMain drm)
+{
+	if ((thisExePath.dirName~"/searchDirs.txt").exists)
 	{
-		steamdir = "~/.steam/steam".expandTilde;
-		enum WINE_DRIVE_Z = "";
-	}
-	else
-	{
-		if (auto home = environment.get("WINEHOMEDIR"))
+		foreach (line; File(thisExePath.dirName~"/searchDirs.txt").byLineCopy)
 		{
-			steamdir = home~"/.steam/steam";
-			if (steamdir.startsWith(`\??\`))
-				steamdir = steamdir[4..$];
+			line = line.strip;
+			if (!line.length || line.startsWith('#'))
+				continue;
+			if (line.exists)
+				drm.searchDirs ~= line;
+			else
+				fprintf(stderr, "note: search directory does not exist: %.*s\n", cast(int)line.length, line.ptr);
+		}
+	}
+}
+
+void interpretFileArgs(ref DrMain drm)
+{
+	string[] newFiles;
+	ubyte[string] seenFileNames;
+
+	void addFile(string path)
+	{
+		// deduplicate based on filename
+		if (!seenFileNames[path.baseName]++)
+			newFiles ~= path;
+	}
+
+	size_t addDirContents(string path)
+	{
+		string[] demoFiles = path.dirEntries("*.dem", SpanMode.shallow).map!"a.name".array;
+		demoFiles.each!addFile;
+		return demoFiles.length;
+	}
+
+	size_t addFileOrDir(string path)
+	{
+		if (path.isDir)
+		{
+			return addDirContents(path);
 		}
 		else
 		{
-			// was this right?
-			steamdir = "C:/Program Files (x86)/Steam";
+			addFile(path);
+			return 1;
 		}
-		enum WINE_DRIVE_Z = "Z:";
 	}
 
-	string gamedir = steamdir~"/steamapps/common/Team Fortress 2/tf";
-	string demodir = gamedir~"/demos";
-
-	string[] searchDirs = [
-		demodir,
-		gamedir,
-		WINE_DRIVE_Z~"/mnt/sdc2/demos",
-	];
-
-	/*
-	 * files given on the command line?
-	 */
-	if (files.length)
+	foreach (file; drm.files)
 	{
-		string[] newFiles;
-		ubyte[string] seenFileNames;
-
-		void addFile(string path)
+		/*
+		 * path given directly
+		 */
+		if (file.exists)
 		{
-			// deduplicate based on filename
-			if (!seenFileNames[path.baseName]++)
-				newFiles ~= path;
+			if (!addFileOrDir(file))
+				fprintf(stderr, "demoreader: no demo files found in '%s'\n", file.toStringz);
+
+			continue;
 		}
 
-		size_t addDirContents(string path)
+		/*
+		 * either a bare filename or a glob pattern
+		 * 
+		 * test it as a glob pattern in all search directories, then add all
+		 *  files that match it
+		 * 
+		 * if this matches any directories, then files inside them that
+		 *  match "*.dem" are added
+		 * 
+		 * it's easy to match other filetypes using this so the results are
+		 *  filtered to just *.dem
+		 */
+		size_t addedCount;
+		foreach (sd; drm.searchDirs)
 		{
-			string[] demoFiles = path.dirEntries("*.dem", SpanMode.shallow).map!"a.name".array;
-			demoFiles.each!addFile;
-			return demoFiles.length;
-		}
-
-		size_t addFileOrDir(string path)
-		{
-			if (path.isDir)
+			// try the given pattern as-is
+			if (string[] ms = sd.dirGlob(file))
 			{
-				return addDirContents(path);
-			}
-			else
-			{
-				addFile(path);
-				return 1;
-			}
-		}
-
-		foreach (file; files)
-		{
-			/*
-			 * path given directly
-			 */
-			if (file.exists)
-			{
-				if (!addFileOrDir(file))
-					printf("demoreader: no demo files found in '%s'\n", file.toStringz);
-
+				foreach (match; ms)
+				{
+					if (match.extension == ".dem" || match.isDir)
+						addedCount += addFileOrDir(match);
+				}
 				continue;
 			}
-
-			/*
-			 * either a bare filename or a glob pattern
-			 * 
-			 * test it as a glob pattern in all search directories, then add all
-			 *  files that match it
-			 * 
-			 * if this matches any directories, then files inside them that
-			 *  match "*.dem" are added
-			 * 
-			 * it's easy to match other filetypes using this so the results are
-			 *  filtered to just *.dem
-			 */
-			size_t addedCount;
-			foreach (sd; searchDirs)
+			// try the given pattern with ".dem" added
+			// this should match only files, so it doesn't check for directories
+			if (string[] ms = sd.dirGlob(file~".dem"))
 			{
-				// try the given pattern as-is
-				if (string[] ms = sd.dirGlob(file))
-				{
-					foreach (match; ms)
-					{
-						if (match.extension == ".dem" || match.isDir)
-							addedCount += addFileOrDir(match);
-					}
-					continue;
-				}
-				// try the given pattern with ".dem" added
-				// this should match only files, so it doesn't check for directories
-				if (string[] ms = sd.dirGlob(file~".dem"))
-				{
-					foreach (match; ms)
-						addedCount += addFileOrDir(match);
-					continue;
-				}
-			}
-
-			// file doesn't exist / glob didn't match anything?
-			if (!addedCount)
-			{
-				printf("error: demo file not found: '%.*s'\n", cast(int)file.length, file.ptr);
-				exit(1);
+				foreach (match; ms)
+					addedCount += addFileOrDir(match);
+				continue;
 			}
 		}
 
-		files = newFiles;
-	}
-	else
-	{
-		// no files, just load all demos we have
-
-		ubyte[string] seenFileNames;
-
-		void addFile(string path)
+		// file doesn't exist / glob didn't match anything?
+		if (!addedCount)
 		{
-			// deduplicate based on filename
-			if (!seenFileNames[path.baseName]++)
-				files ~= path;
+			fprintf(stderr, "error: demo file not found: '%.*s'\n", cast(int)file.length, file.ptr);
+			exit(1);
 		}
+	}
 
-		foreach (dir; searchDirs)
+	drm.files = newFiles;
+}
+
+void loadAllDemos(ref DrMain drm)
+{
+	// no files, just load all demos we have
+
+	ubyte[string] seenFileNames;
+
+	void addFile(string path)
+	{
+		// deduplicate based on filename
+		if (!seenFileNames[path.baseName]++)
+			drm.files ~= path;
+	}
+
+	if (!drm.searchDirs.length)
+	{
+		fprintf(stderr, "demoreader: no file given, no search directories configured\n");
+		exit(1);
+	}
+
+	bool foundAny;
+	foreach (dir; drm.searchDirs)
+	{
+		foreach (s; dir.dirEntries("*.dem", SpanMode.shallow))
 		{
-			if (dir.exists)
-			{
-				foreach (s; dir.dirEntries("*.dem", SpanMode.shallow))
-					addFile(s);
-			}
+			foundAny = true;
+			addFile(s);
 		}
 	}
-
-	files = files
-		.sort!demoNameCompareFn
-		.array;
-
-	/*
-	 * apply range thing
-	 */
-	if (rangetype)
+	if (!foundAny)
 	{
-		if (rangenum > files.length)
-			rangenum = cast(int)files.length;
-
-		if (rangetype == '-')
-			files = files[$-rangenum..$];
-		else if (rangetype == '+')
-			files = files[rangenum-1..$];
-
-		if (!rangerest && files.length)
-			files = files[0..1];
+		fprintf(stderr, "demoreader: no demos were found in the search directories\n");
+		exit(1);
 	}
+}
 
-	if (listonly)
-	{
-		foreach (s; files)
-			printf("%.*s\n", cast(int)s.length, s.ptr);
-
-		return 0;
-	}
-
-	struct ErrorInfo
-	{
-		string filename;
-		string errfile;
-		size_t errline;
-		string errmsg;
-	}
-	ErrorInfo[] errordemos;
-
-	bool lastDemoWasLive; /// true if the last demo in the loop was still being written
-	uint demosReadCnt;    /// demos seen by the loop
-	bool fatalError;      /// got an exception while reading
-
+void runFileLoop(ref DrMain drm)
+{
 fileloop:
-
-	foreach (file; files)
+	foreach (file; drm.files)
 	{
 		string jsonFile = file.setExtension(".json");
 
-		if (demosReadCnt++)
+		if (drm.demosReadCnt++)
 			putchar('\n');
 
 		printf("Demo: %.*s\n", cast(int)file.length, file.ptr);
 
 		scope dr = new DemoReader(file);
 
-		lastDemoWasLive = dr.isLive;
+		drm.lastDemoWasLive = dr.isLive;
 
 		// create json if: new demo, used -json, json doesn't exist, json is older than demo file
 		JsonOutput.resetAndSetActive(
@@ -472,15 +437,15 @@ fileloop:
 
 			fprintf(stderr, "Failing demo: %.*s\n", cast(int)file.length, file.ptr);
 
-			if (!keepgoing)
+			if (!drm.keepgoing)
 			{
-				fatalError = true;
-				goto printStatsAndExit;
+				drm.fatalError = true;
+				return;
 			}
 			else
 			{
 				// note: can't store the Throwable since it might get reused (asserts do this)
-				errordemos ~= ErrorInfo(file, e.file, e.line, e.msg);
+				drm.errordemos ~= ErrorInfo(file, e.file, e.line, e.msg);
 				goto nextDemo;
 			}
 		}
@@ -490,7 +455,7 @@ fileloop:
 			JsonOutput.save(jsonFile);
 
 nextDemo:
-		if (verbose)
+		if (drm.verbose)
 			printf("Previous demo: %.*s\n", cast(int)file.length, file.ptr);
 	}
 
@@ -511,13 +476,13 @@ nextDemo:
 	if (
 		canProcessNewDemos &&
 		isatty(1) &&
-		rangetype == '-' &&
-		rangenum == 1 &&
-		lastDemoWasLive &&
-		files[$-1].isAutoNamedDemo)
+		drm.rangetype == '-' &&
+		drm.rangenum == 1 &&
+		drm.lastDemoWasLive &&
+		drm.files[$-1].isAutoNamedDemo)
 	{
-		string liveFile = files[$-1];
-		string liveDir = files[$-1].dirName;
+		string liveFile = drm.files[$-1];
+		string liveDir = drm.files[$-1].dirName;
 
 		MonoTime waitStart = MonoTime.currTime;
 
@@ -550,7 +515,7 @@ nextDemo:
 				if (g_liveStat)
 					printf("-live: got next demo after %s: %s\n", waitDur.toString().toStringz, newer[0].toStringz);
 
-				files = newer;
+				drm.files = newer;
 				break;
 			}
 			else
@@ -564,8 +529,90 @@ nextDemo:
 
 		goto fileloop;
 	}
+}
 
-printStatsAndExit:
+int main(string[] args)
+{
+	DrMain drm;
+
+	version(Posix)
+	{
+		if ("_DEMOREADER_IN_PAGER" in environment)
+		{
+			g_useColor = true;
+
+			// consistency
+			setvbuf(stdout, null, _IOLBF, 0);
+			setvbuf(stderr, null, _IOLBF, 0);
+
+			// ignore SIGPIPE (pager exited before all output was written)
+			extern(C) static void handler(int)
+			{
+				_exit(0);
+			}
+			signal(SIGPIPE, &handler);
+		}
+		else
+		{
+			if (isatty(1))
+				g_useColor = true;
+			else
+				g_useColor = false;
+		}
+	}
+	else
+	{
+		g_useColor = false;
+	}
+
+	g_marks = parseMarks(thisExePath.dirName~"/marks.txt");
+
+	parseCommandLine(drm, args);
+
+	readSearchDirsConfig(drm);
+
+	/*
+	 * files given on the command line?
+	 */
+	if (drm.files.length)
+	{
+		interpretFileArgs(drm);
+	}
+	else
+	{
+		loadAllDemos(drm);
+	}
+
+	drm.files = drm.files
+		.sort!demoNameCompareFn
+		.array;
+
+	/*
+	 * apply range thing
+	 */
+	if (drm.rangetype)
+	{
+		if (drm.rangenum > drm.files.length)
+			drm.rangenum = cast(int)drm.files.length;
+
+		if (drm.rangetype == '-')
+			drm.files = drm.files[$-drm.rangenum..$];
+		else if (drm.rangetype == '+')
+			drm.files = drm.files[drm.rangenum-1..$];
+
+		if (!drm.rangerest && drm.files.length)
+			drm.files = drm.files[0..1];
+	}
+
+	if (drm.listonly)
+	{
+		foreach (s; drm.files)
+			printf("%.*s\n", cast(int)s.length, s.ptr);
+
+		return 0;
+	}
+
+	runFileLoop(drm);
 
 	if (g_sizeStatEnabled)
 	{
@@ -597,11 +644,11 @@ printStatsAndExit:
 		SpaceTally.print();
 	}
 
-	if (keepgoing && errordemos)
+	if (drm.keepgoing && drm.errordemos)
 	{
-		printf("*** %zu/%zu of played demos had errors:\n", errordemos.length, files.length);
+		printf("*** %zu/%zu of played demos had errors:\n", drm.errordemos.length, drm.files.length);
 
-		foreach (file; errordemos)
+		foreach (file; drm.errordemos)
 		{
 			printf("%.*s\n", cast(int)file.filename.length, file.filename.ptr);
 
@@ -609,7 +656,7 @@ printStatsAndExit:
 		}
 	}
 
-	if (fatalError)
+	if (drm.fatalError)
 		return 1;
 
 	return 0;

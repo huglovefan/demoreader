@@ -78,6 +78,10 @@ final class DemoReader
 	 */
 	bool         serverNeedsForcedImpliedTeamsWorkaround;
 
+	/// reading a specific type of broken demo that's missing dem_datatables
+	/// this makes entity parsing impossible since we don't get class data
+	bool         isBrokenDemoMissingDataTables;
+
 	pragma(inline, true)
 	{
 		bool serverAllowsSpectators()         { return !isOfficialServer; }
@@ -402,20 +406,25 @@ final class DemoReader
 				assert(isLocalListenServer);
 
 			/*
-			 * fix the duration if ours is different from the header's
+			 * get a proper duration for some weird listen server demos
 			 * 
-			 * fixes 2022-08-18_22-34-05_3.dem (the negative duration one)
+			 * ex: 2022-08-18_22-34-05_3.dem
 			 */
 			if (header.playback_ticks != getFinishedDurationTicks)
 			{
-				printf("-duration mismatch: header says %.3f seconds, we got %.3Lf\n",
-					header.playback_time, getFinishedDuration);
+				// test: only seen with this configuration so far
+				bool knownCase = isLocalListenServer && header.playback_time < 0 && header.playback_ticks < 0;
+
+				// not interesting to print
+				if (!knownCase || TRACE1)
+					printf("-duration mismatch: header says %dt/%.3fs, we got %ut/%.3Lfs (isLocal %u)\n",
+						header.playback_ticks, header.playback_time,
+						getFinishedDurationTicks, getFinishedDuration,
+						isLocalListenServer);
 
 				JsonOutput.setDemoDuration(getFinishedDuration);
 
-				// test: only seen with this configuration so far
-				assert(header.playback_time < 0 && header.playback_ticks < 0);
-				assert(isLocalListenServer);
+				assert(knownCase);
 			}
 		}
 
@@ -481,11 +490,10 @@ private:
 		}
 
 		/*
-		 * assign the tick count, but check that it's reasonable first
+		 * assign the demo tick, but check that it's reasonable first
 		 * 
-		 * this gains us
-		 * 1. accurate demo duration in json file
-		 * 2. accurate parsed duration in -livestat
+		 * this is mainly done so that we can calculate a correct duration for
+		 *  the demo (for json and -livestat)
 		 * 
 		 * funny ticks usually happen:
 		 * - during signon when the tick is wrong anyway
@@ -505,14 +513,29 @@ private:
 			uint diff = tick - demoTickNo;
 			enum maxJump = cast(uint)(30 / 0.015); // seconds / tick rate
 
-			// 1. reasonable jump
-			// 2. unreasonable jump during signon or map change (ignore)
-			if (diff <= maxJump || signonState != 6)
+			// 1. normal and reasonable adjustment
+			// 2. first set of tick count
+			// 3. actually, let's just trust the tick count always if it's a
+			//     non-listen server. i'm thinking it's listen servers that are
+			//     the weird case that needs special handling here. since you're
+			//     the host, lag spikes (alt tabbing) can actually warp time on
+			//     the server. that's not the case if you're just a connected
+			//     client. time warps are what we want to detect and skip here.
+			if (diff <= maxJump || (!signonState && !demoTickNo) || !isLocalListenServer)
+			{
+				if (TRACE1)
+					printf("* assign tick %u -> %u (diff %u, signonState %u)\n", demoTickNo, tick, diff, signonState);
 				demoTickNo = tick;
+			}
 			else
 			{
-				//printf("-demo tick count jumped by %u (%f sec)\n", diff, diff*0.015f);
-				assert(isLocalListenServer);
+				// not interesting to print
+				if (TRACE1)
+					printf("-demo tick jump: %ut/%.1fs -> %ut/%.1fs (diff %ut/%.1fs, signonState %u)\n",
+						demoTickNo, demoTickNo*0.015,
+						tick, tick*0.015,
+						diff, diff*0.015,
+						signonState);
 			}
 		}
 		else
@@ -734,6 +757,7 @@ private:
 				ubyte[] data = br.read!(ubyte[])(size);
 
 				tracePrint();
+				assert(!isBrokenDemoMissingDataTables);
 				handleDataTables(data);
 
 				break;
@@ -759,15 +783,33 @@ private:
 
 			case dem_synctick:
 			{
+				import demoreader.entitystuff : gameState;
+
 				tracePrint();
 
-				// detect broken demos that are missing some of the signon packets
-				enum want = 5;
-				if (signonState != want)
+				if (signonState != 5)
+					printf("-broken demo: got dem_synctick at signonState %u\n", signonState);
+
+				switch (signonState)
 				{
-					printf("-got dem_synctick at signonState %d instead of %d, demo file might be bugged\n",
-						signonState, want);
+				case 3:
+					// these demos are missing dem_datatables so we lack classes, can't parse baselines
+					assert(!gameState.classes.length);
+					assert(!gameState.baseLines.baselines.length);
+					isBrokenDemoMissingDataTables = true;
+					break;
+				case 4:
+				case 5:
+					assert(gameState.classes.length);
+					assert(gameState.baseLines.baselines.length);
+					break;
+				default:
+					assert(0); // haven't seen
 				}
+
+				// Let's craft.
+				if (signonState == 3 || signonState == 4)
+					signonState = 5;
 
 				break;
 			}
@@ -997,7 +1039,8 @@ private:
 
 				case svc_packetentities:
 				{
-					demoreader.entitystuff.parseSvcPacketEntities(buf);
+					bool shouldParse = !(g_skipPacketEntities || isBrokenDemoMissingDataTables);
+					demoreader.entitystuff.parseSvcPacketEntities(buf, !shouldParse);
 					break;
 				}
 
@@ -1364,6 +1407,12 @@ private:
 							printf("   reliable=true\n");
 					}
 
+					if (!gameState.baseLines.baselines.length)
+					{
+						assert(isBrokenDemoMissingDataTables);
+						break;
+					}
+
 					// test demos with sprays:
 					// listenserver/2022-10-08_05-10-56.dem
 					// listenserver/2022-10-08_05-18-24.dem
@@ -1566,6 +1615,12 @@ private:
 						sbuf.PrintBytes();
 					}
 
+					if (!demoreader.entitystuff.gameState.classes.length)
+					{
+						assert(isBrokenDemoMissingDataTables);
+						break;
+					}
+
 					string classname = demoreader.entitystuff.gameState.classes[classid].name;
 
 					// 2022-11-10_02-13-31_2.dem - bug or feature?
@@ -1762,6 +1817,17 @@ private:
 					/**/                      ? buf.ReadOneBit()
 					/**/                      : false;
 					ubyte[] data              = buf.ReadDBitArray(length);
+
+					if (TRACE1)
+					{
+						printf("   name=%.*s\n", cast(int)tableName.length, tableName.ptr);
+						printf("   maxEntries=%u\n", maxEntries);
+						printf("   numEntries=%u\n", numEntries);
+						printf("   length=%u\n", length);
+						printf("   userDataFixedSize=%u\n", userDataFixedSize);
+						printf("   userDataSizeBits=%u\n", userDataSizeBits);
+						printf("   dataCompressed=%u\n", dataCompressed);
+					}
 
 					// wasn't already created
 					assert(!StringTable.get(tableName));

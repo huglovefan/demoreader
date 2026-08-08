@@ -11,16 +11,16 @@ the code is from 2022, but (to my surprise) it seemed to still work with demos a
 thanks:
 
 - <https://github.com/ValveSoftware/csgo-demoinfo> (basics of demo parsing)
-- <https://github.com/UncraftedName/UntitledParser> (more complicated event stuff)
+- <https://github.com/UncraftedName/UntitledParser> (more complicated entity stuff)
 - some glances at leaked source code
 
 ### command-line documentation
 
-    ./demoreader [options] [demofile|[start]-[end]]...
+    ./demoreader [options] [demofile|range|glob]...
 
 The command takes one or more demo files as an argument. Alternatively,
-a range can be specified to look them up in the game's demo directory.
-See **Range syntax** below.
+a range or glob pattern can be used to look them up in the configured
+search directories. See **Examples** below.
 
 **Options:**
 
@@ -32,6 +32,7 @@ See **Range syntax** below.
 -   `-nowait`:		disable automatic live demo functionality (for scripting)
 -   `-steamids`:	include player steamids in output
 -   `-trace`:		include detailed low-level output from parsing
+-   `-wrap`:		wrap long lines in pager
 
 **Developer options:**
 
@@ -39,31 +40,30 @@ See **Range syntax** below.
 -   `-json`:		force writing json file
 -   `-livestat`:	print debug stats for -live
 -   `-sizestat`:	gather size stat
+-   `-skipentities`:	skip parsing entity data
 -   `-userids`:		include player userids in output
 -   `-v`:		verbose output (useless)
 
-**Range syntax**
+**Examples:**
 
-Ranges have three forms:
+Below are some examples that show how the range and glob syntax can be
+used. Both forms require that some
+[search directories](searchDirs.txt.example) have been configured.
 
--   `n-m`: Play numbered demos `n` to `m`. Demo numbering is one-based
-    and starts from the oldest demo. **Example:** `1-3` - Play the first
-    three demos.
--   `n-`: Play demos starting from the `n`th oldest. **Example**: `5-` -
-    Skip four demos from the beginning and read them from the fifth
-    onwards.
--   `-n`: Play the `n` most recent demos. **Example**: `-1` - Play the
-    single most recent demo.
+    ./demoreader -1     # read the last demo
+    ./demoreader -100-  # read the last 100 demos
+    ./demoreader +1     # read the first demo
+    ./demoreader +100-  # read from the 100th demo onwards
 
-Here's an illustrated example of the numbering and matching.
+<P></P>
 
-    [1] 2025-10-01_17-39-49.dem    (1-3)
-    [2] 2025-10-02_11-43-47.dem    (1-3)
-    [3] 2025-10-02_11-43-47_2.dem  (1-3)
-    [4] 2025-10-03_20-59-43.dem
-    [5] 2025-10-03_21-06-38.dem    (5-)
-    [6] 2025-10-03_21-06-38_2.dem  (5-)
-    [7] 2025-10-03_21-06-38_3.dem  (5-) (-1)
+    # read demos with a matching filename
+    ./demoreader '2022-01-*'
+
+-   Ranges are applied after all demos from the search directories have
+    been gathered and **sorted by filename** (independent of their
+    containing directory).
+-   To just list what's matched, add `-l`.
 
 ### they JUST announced it
 

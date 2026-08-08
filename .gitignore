@@ -1,4 +1,8 @@
 /data/
 /demoreader
-/demoreader.o
 /marks.txt
+/searchDirs.txt
+/user.mk
+*.gcda
+*.profdata
+*.profraw

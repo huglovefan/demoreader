@@ -1,0 +1,10 @@
+#
+# this file is sourced by the makefile. it can be used to override or
+# add your own compilation flags.
+#
+# to use this file, copy it to "user.mk".
+#
+
+# example: link dmd builds with lld.
+# may link faster, but requires lld to be installed.
+mydmdflags += -Xcc=-fuse-ld=lld
