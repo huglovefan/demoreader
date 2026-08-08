@@ -46,6 +46,7 @@ final class DemoReader
 	{
 		FileWatch    fw;
 		ByteReader   br;
+		Votes        votes;
 	}
 
 	string       filePath;    /// path to demo file
@@ -238,7 +239,7 @@ final class DemoReader
 			GameEvent.reset();
 			StringTable.reset();
 			Player2.reset();
-			Vote.reset();
+			votes.reset();
 			demoreader.entitystuff.gameState.reset();
 		}
 
@@ -2928,7 +2929,7 @@ private:
 						
 				}
 
-				Vote.get(voteIndex).remove();
+				votes.remove(voteIndex);
 
 				assert(unk1 == 0x23);
 
@@ -2955,7 +2956,7 @@ private:
 				else
 					log("Vote: Vote failed");
 
-				Vote.get(voteIndex).remove();
+				votes.remove(voteIndex);
 
 				assert(voteTeamIndex == 0 || voteTeamIndex == 2 || voteTeamIndex == 3);
 				assert(reason == 3);
@@ -3687,10 +3688,10 @@ private:
 				if (g_htmlOut)
 					htmlSimpleRow("<strong>Vote:</strong> %s voted %s",
 						htmlPlayerName(pl).ptr,
-						htmlspecialchars(Vote.get(voteidx).optionName(vote_option).fromStringz).ptr,
+						htmlspecialchars(votes.get(voteidx).optionName(vote_option).fromStringz).ptr,
 						);
 				else
-					log("Vote: %s voted %s", pl.ttyname, Vote.get(voteidx).optionName(vote_option));
+					log("Vote: %s voted %s", pl.ttyname, votes.get(voteidx).optionName(vote_option));
 
 				break;
 			}
@@ -3707,7 +3708,7 @@ private:
 				if (!isOfficialServer && voteidx == -1)
 					voteidx = 0;
 
-				Vote* v = Vote.get(voteidx);
+				Vote* v = votes.get(voteidx);
 
 				v.options = new char[][count];
 				foreach (i; 0..count)

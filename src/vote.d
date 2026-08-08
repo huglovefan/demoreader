@@ -14,21 +14,34 @@ import core.stdc.stdio;
  * - "vote_options" game event
  */
 
+struct Votes
+{
+	Vote*[int] activeVotes;
+
+	void reset()
+	{
+		activeVotes = null;
+	}
+
+	Vote* get(int wantIndex)
+	{
+		if (Vote** vp = wantIndex in activeVotes)
+			return *vp;
+
+		return (activeVotes[wantIndex] = new Vote(wantIndex));
+	}
+
+	void remove(int wantIndex)
+	{
+		activeVotes.remove(wantIndex);
+	}
+}
+
 struct Vote
 {
 	int      index;
 	uint     team;
 	char[][] options;
-
-	static
-	{
-		Vote*[int] activeVotes;
-
-		void reset()
-		{
-			activeVotes = null;
-		}
-	}
 
 	const(char)* optionName(uint optionNo)
 	{
@@ -44,19 +57,5 @@ struct Vote
 		char[] name = new char[32];
 		snprintf(name.ptr, name.length, "<option %u>", optionNo);
 		return name.ptr;
-	}
-
-	void remove()
-	{
-		activeVotes.remove(index);
-	}
-
-static:
-	Vote* get(int wantIndex)
-	{
-		if (Vote** vp = wantIndex in activeVotes)
-			return *vp;
-
-		return (activeVotes[wantIndex] = new Vote(wantIndex));
 	}
 }
