@@ -48,6 +48,7 @@ final class DemoReader
 		ByteReader   br;
 		Votes        votes;
 		StringTables stringTables;
+		GameEvents   gameEvents;
 	}
 
 	string       filePath;    /// path to demo file
@@ -237,7 +238,7 @@ final class DemoReader
 
 		scope(exit)
 		{
-			GameEvent.reset();
+			gameEvents.reset();
 			stringTables.reset();
 			Player2.reset();
 			votes.reset();
@@ -2088,7 +2089,7 @@ private:
 
 					handleGameEventList(data);
 
-					assert(GameEvent.defs.length == numEvents);
+					assert(gameEvents.defs.length == numEvents);
 
 					break;
 				}
@@ -2985,7 +2986,7 @@ private:
 	 */
 	bool handleGameEvent(bf_read evbuf)
 	{
-		if (!GameEvent.defs.length)
+		if (!gameEvents.defs.length)
 		{
 			if (!tryLoadGameEventListFromDisk())
 			{
@@ -2994,7 +2995,7 @@ private:
 			}
 		}
 
-		GameEvent* ge = GameEvent.get(evbuf.ReadUBitLong(9));
+		GameEvent* ge = gameEvents.get(evbuf.ReadUBitLong(9));
 		assert(ge);
 
 		auto args = ge.parse(evbuf);
@@ -3008,22 +3009,22 @@ private:
 				final switch (p.type)
 				{
 					case Param.Type.String:
-						printf("    %s=%s\n", p.name.ptr, args.get!(char[])(p.name).ptr);
+						printf("    %s=%s\n", p.name.ptr, args.get!(char[])(p.name, gameEvents).ptr);
 						break;
 					case Param.Type.Float:
-						printf("    %s=%f\n", p.name.ptr, args.get!float(p.name));
+						printf("    %s=%f\n", p.name.ptr, args.get!float(p.name, gameEvents));
 						break;
 					case Param.Type.Long:
-						printf("    %s=%d\n", p.name.ptr, args.get!int(p.name));
+						printf("    %s=%d\n", p.name.ptr, args.get!int(p.name, gameEvents));
 						break;
 					case Param.Type.Short:
-						printf("    %s=%d\n", p.name.ptr, args.get!short(p.name));
+						printf("    %s=%d\n", p.name.ptr, args.get!short(p.name, gameEvents));
 						break;
 					case Param.Type.Byte:
-						printf("    %s=%u\n", p.name.ptr, args.get!ubyte(p.name));
+						printf("    %s=%u\n", p.name.ptr, args.get!ubyte(p.name, gameEvents));
 						break;
 					case Param.Type.Bool:
-						printf("    %s=%s\n", p.name.ptr, args.get!bool(p.name) ? "true".ptr : "false".ptr);
+						printf("    %s=%s\n", p.name.ptr, args.get!bool(p.name, gameEvents) ? "true".ptr : "false".ptr);
 						break;
 				}
 			}
@@ -3033,8 +3034,8 @@ private:
 		{
 			case "achievement_earned":
 			{
-				int  achievement = args.get!short("achievement");
-				uint player      = args.get!ubyte("player");
+				int  achievement = args.get!short("achievement", gameEvents);
+				uint player      = args.get!ubyte("player", gameEvents);
 
 				Player2* pl = Player2.getByEntIndex(player);
 				assert(pl);
@@ -3055,11 +3056,11 @@ private:
 			// https://github.com/nullworks/cathook/blob/285e22a/src/hooks/SendNetMsg.cpp#L36
 			case "cl_drawline":
 			{
-				uint  line   = args.get!ubyte("line");
-				uint  panel  = args.get!ubyte("panel");
-				uint  player = args.get!ubyte("player");
-				float x      = args.get!float("x");
-				float y      = args.get!float("y");
+				uint  line   = args.get!ubyte("line", gameEvents);
+				uint  panel  = args.get!ubyte("panel", gameEvents);
+				uint  player = args.get!ubyte("player", gameEvents);
+				float x      = args.get!float("x", gameEvents);
+				float y      = args.get!float("y", gameEvents);
 
 				assert(line == 0);
 				assert(panel == 2);
@@ -3075,7 +3076,7 @@ private:
 
 			case "ctf_flag_captured":
 			{
-				int team = args.get!short("capping_team");
+				int team = args.get!short("capping_team", gameEvents);
 
 				string teamname =
 					team == 2 ? "RED" :
@@ -3095,8 +3096,8 @@ private:
 			 */
 			case "player_changeclass":
 			{
-				int class_ = args.get!short("class");
-				int userid = args.get!short("userid");
+				int class_ = args.get!short("class", gameEvents);
+				int userid = args.get!short("userid", gameEvents);
 
 				static immutable classNames = [
 					null,
@@ -3128,8 +3129,8 @@ private:
 
 			case "teamplay_flag_event":
 			{
-				int type   = args.get!short("eventtype");
-				int player = args.get!short("player");
+				int type   = args.get!short("eventtype", gameEvents);
+				int player = args.get!short("player", gameEvents);
 
 				enum
 				{
@@ -3172,10 +3173,10 @@ private:
 			 */
 			case "player_connect_client":
 			{
-				char[] name      = args.get!(char[])("name");
-				uint   index     = args.get!ubyte("index");
-				int    userid    = args.get!short("userid");
-				char[] networkid = args.get!(char[])("networkid");
+				char[] name      = args.get!(char[])("name", gameEvents);
+				uint   index     = args.get!ubyte("index", gameEvents);
+				int    userid    = args.get!short("userid", gameEvents);
+				char[] networkid = args.get!(char[])("networkid", gameEvents);
 
 				/*
 				 * note: this is the chat message, it comes before the
@@ -3277,10 +3278,10 @@ private:
 			 */
 			case "player_death":
 			{
-				int    userid    = args.get!short("userid");
-				int    attacker  = args.get!short("attacker");
-				char[] weapon    = args.get!(char[])("weapon_logclassname");
-				int    crit_type = args.get!short("crit_type", 0);
+				int    userid    = args.get!short("userid", gameEvents);
+				int    attacker  = args.get!short("attacker", gameEvents);
+				char[] weapon    = args.get!(char[])("weapon_logclassname", gameEvents);
+				int    crit_type = args.get!short("crit_type", 0, gameEvents);
 
 				bool isCrit = (crit_type == 2); // 1 = mini, 2 = proper
 
@@ -3422,9 +3423,9 @@ private:
 
 			case "player_disconnect":
 			{
-				char[] name   = args.get!(char[])("name");
-				char[] reason = args.get!(char[])("reason");
-				int    userid = args.get!short("userid");
+				char[] name   = args.get!(char[])("name", gameEvents);
+				char[] reason = args.get!(char[])("reason", gameEvents);
+				int    userid = args.get!short("userid", gameEvents);
 
 				/*
 				 * force: they might already be disconnected
@@ -3535,9 +3536,9 @@ private:
 			 */
 			case "player_spawn":
 			{
-				int class_ = args.get!short("class");
-				int team   = args.get!short("team");
-				int userid = args.get!short("userid");
+				int class_ = args.get!short("class", gameEvents);
+				int team   = args.get!short("team", gameEvents);
+				int userid = args.get!short("userid", gameEvents);
 
 				bool isPreConnect = (team == 0 && class_ == 0);
 
@@ -3611,12 +3612,12 @@ private:
 
 			case "player_team":
 			{
-				uint   autoteam   = args.get!bool("autoteam");
-				uint   disconnect = args.get!bool("disconnect");
-				char[] name       = args.get!(char[])("name");
-				uint   oldteam    = args.get!ubyte("oldteam");
-				uint   team       = args.get!ubyte("team");
-				int    userid     = args.get!short("userid");
+				uint   autoteam   = args.get!bool("autoteam", gameEvents);
+				uint   disconnect = args.get!bool("disconnect", gameEvents);
+				char[] name       = args.get!(char[])("name", gameEvents);
+				uint   oldteam    = args.get!ubyte("oldteam", gameEvents);
+				uint   team       = args.get!ubyte("team", gameEvents);
+				int    userid     = args.get!short("userid", gameEvents);
 
 				// some disconnects fire this (why not all?)
 				if (disconnect)
@@ -3674,11 +3675,11 @@ private:
 
 			case "vote_cast":
 			{
-				int  entityid    = args.get!int("entityid");
-				int  team        = args.get!short("team");
-				uint vote_option = args.get!ubyte("vote_option");
+				int  entityid    = args.get!int("entityid", gameEvents);
+				int  team        = args.get!short("team", gameEvents);
+				uint vote_option = args.get!ubyte("vote_option", gameEvents);
 				int  voteidx     = (buildNumber > 7182415)
-				/**/             ? args.get!int("voteidx")
+				/**/             ? args.get!int("voteidx", gameEvents)
 				/**/             : 0;
 
 				Player2* pl = Player2.getByEntIndex(entityid);
@@ -3699,9 +3700,9 @@ private:
 
 			case "vote_options":
 			{
-				uint count   = args.get!ubyte("count");
+				uint count   = args.get!ubyte("count", gameEvents);
 				int  voteidx = (buildNumber > 7182415)
-				/**/         ? args.get!int("voteidx")
+				/**/         ? args.get!int("voteidx", gameEvents)
 				/**/         : 0;
 
 				// skial hack:
@@ -3716,7 +3717,7 @@ private:
 				{
 					char[16] buf = void;
 					snprintf(buf.ptr, buf.length, "option%u", i+1);
-					v.options[i] = args.get!(char[])(buf.fromStringz);
+					v.options[i] = args.get!(char[])(buf.fromStringz, gameEvents);
 				}
 
 				break;
@@ -3738,8 +3739,8 @@ private:
 			// server cvar change that's announced in the chat (e.g. sv_cheats)
 			case "server_cvar":
 			{
-				char[] name  = args.get!(char[])("cvarname");
-				char[] value = args.get!(char[])("cvarvalue");
+				char[] name  = args.get!(char[])("cvarname", gameEvents);
+				char[] value = args.get!(char[])("cvarvalue", gameEvents);
 				log("Server cvar '%s' changed to %s", name.ptr, value.ptr);
 				if (name == "mp_friendlyfire")
 					isFriendlyFireEnabled = !!atoi(value.ptr);
@@ -3748,13 +3749,13 @@ private:
 
 			case "item_found":
 			{
-				uint  isStrange  = args.get!ubyte("isstrange");
-				uint  isUnusual  = args.get!ubyte("isunusual");
-				int   itemdef    = args.get!int("itemdef");
-				uint  method     = args.get!ubyte("method");
-				uint  playerSlot = args.get!ubyte("player");
-				uint  quality    = args.get!ubyte("quality");
-				float wear       = args.get!float("wear");
+				uint  isStrange  = args.get!ubyte("isstrange", gameEvents);
+				uint  isUnusual  = args.get!ubyte("isunusual", gameEvents);
+				int   itemdef    = args.get!int("itemdef", gameEvents);
+				uint  method     = args.get!ubyte("method", gameEvents);
+				uint  playerSlot = args.get!ubyte("player", gameEvents);
+				uint  quality    = args.get!ubyte("quality", gameEvents);
+				float wear       = args.get!float("wear", gameEvents);
 
 				Player2* pl = Player2.getByEntIndex(playerSlot);
 				assert(pl);
@@ -3813,7 +3814,7 @@ private:
 		 * this assumes that the file contents really match what we got here
 		 *  (saveGameEventList() checks this with debug=1)
 		 */
-		if (GameEvent.defs.length)
+		if (gameEvents.defs.length)
 			return;
 
 		scope evbuf = new bf_read(data);
@@ -3853,10 +3854,10 @@ private:
 			ge.params = ps[];
 		}
 
-		GameEvent.defs = ges[];
+		gameEvents.defs = ges[];
 		debug
 		{
-			if (GameEvent.defs.length > reserveNumber)
+			if (gameEvents.defs.length > reserveNumber)
 			{
 				printf("reserveNumber too low: anticipated %u events but got %zu\n", reserveNumber, GameEvent.defs.length);
 				assert(0);

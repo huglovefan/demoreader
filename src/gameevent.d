@@ -19,6 +19,24 @@ enum GameEventParamType : uint
 	Bool   = 6,
 }
 
+struct GameEvents
+{
+	GameEvent*[] defs;
+
+	void reset()
+	{
+		defs = null;
+	}
+
+	GameEvent* get(uint id)
+	{
+		if (id < defs.length)
+			return defs.ptr[id];
+		else
+			return null;
+	}
+}
+
 // from: SvcGameEventList
 // to:   SvcGameEvent
 struct GameEvent
@@ -90,22 +108,6 @@ struct GameEvent
 		alias parse = parseEager;
 		alias Args = EagerArgs;
 	}
-
-static:
-	GameEvent*[] defs;
-
-	void reset()
-	{
-		defs = null;
-	}
-
-	GameEvent* get(uint id)
-	{
-		if (id < defs.length)
-			return defs.ptr[id];
-		else
-			return null;
-	}
 }
 
 /*
@@ -118,7 +120,7 @@ struct GameEventArgsEager
 	enum parsed = true;
 	ParamValue[] values;
 
-	auto get(T)(const(char)[] name)
+	auto get(T)(const(char)[] name, ref GameEvents gameEvents)
 	{
 		foreach (ref v; values)
 		{
@@ -132,7 +134,7 @@ struct GameEventArgsEager
 		assert(0, "unknown game event parameter name");
 	}
 
-	auto get(T)(const(char)[] name, T defval)
+	auto get(T)(const(char)[] name, T defval, ref GameEvents gameEvents)
 	{
 		foreach (ref v; values)
 		{
@@ -166,23 +168,23 @@ struct GameEventArgsLazy
 	bool      parsed;
 	EagerArgs args;
 
-	auto get(T)(const(char)[] name)
+	auto get(T)(const(char)[] name, ref GameEvents gameEvents)
 	{
 		if (!parsed)
-			doParse();
-		return args.get!T(name);
+			doParse(gameEvents);
+		return args.get!T(name, gameEvents);
 	}
-	auto get(T)(const(char)[] name, T defval)
+	auto get(T)(const(char)[] name, T defval, ref GameEvents gameEvents)
 	{
 		if (!parsed)
-			doParse();
-		return args.get!T(name, defval);
+			doParse(gameEvents);
+		return args.get!T(name, defval, gameEvents);
 	}
 
 	pragma(inline, false) // called only once
-	void doParse()
+	void doParse(ref GameEvents gameEvents)
 	{
-		args = GameEvent.get(eventId).parseEager(buf);
+		args = gameEvents.get(eventId).parseEager(buf);
 		parsed = true;
 	}
 }
