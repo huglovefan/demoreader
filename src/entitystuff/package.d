@@ -12,7 +12,7 @@ import std.string;
 import demoreader.entitystuff.datatable;
 import demoreader.entitystuff.decode;
 import demoreader.globals;
-import demoreader.player : Player2;
+import demoreader.player : Player;
 import demoreader.valve.bitbuf;
 
 __gshared GameState gameState;
@@ -138,9 +138,9 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delta %d <%s>\n", entindex, classname);
@@ -163,9 +163,9 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   LeavePVS %d <%s>\n", entindex, classname);
@@ -187,9 +187,9 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 				if (TRACE1)
 				{
 					const(char)* classname = gameState.classes[classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   EnterPVS %d <%s>\n", entindex, classname);
@@ -222,9 +222,9 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delete %d <%s>\n", entindex, classname);
@@ -266,9 +266,9 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delete2 %d <%s>\n", entindex, classname);

@@ -240,7 +240,7 @@ final class DemoReader
 		{
 			gameEvents.reset();
 			stringTables.reset();
-			Player2.reset();
+			Player.reset();
 			votes.reset();
 			demoreader.entitystuff.gameState.reset();
 		}
@@ -635,7 +635,7 @@ private:
 				// did we get any entity updates this packet?
 				if (auto snap = demoreader.entitystuff.gameState.snapshotForTick(serverTickNo))
 				{
-					for (int i = 1; i <= Player2.maxPlayers; i++)
+					for (int i = 1; i <= Player.maxPlayers; i++)
 					{
 						auto ent = snap.entities[i];
 
@@ -665,7 +665,7 @@ private:
 							pitch < -0x1.652d3p+6)
 						{
 							// force: they might've just disconnected (2022-07-31_06-58-54.dem)
-							Player2 *pl = Player2.getByEntIndex(i, /* force */ true);
+							Player *pl = Player.getByEntIndex(i, /* force */ true);
 							assert(pl);
 
 							if (!pl.badPitchTick || serverTickNo >= pl.badPitchTick+66)
@@ -686,7 +686,7 @@ private:
 
 					// TEST
 					static if (0)
-					for (int i = 1; i <= Player2.maxPlayers; i++)
+					for (int i = 1; i <= Player.maxPlayers; i++)
 					{
 						auto ent = demoreader.entitystuff.gameState.entities[i];
 
@@ -1081,9 +1081,9 @@ private:
 						}
 						if (TRACE1)
 						{
-							Player2* pl;
-							if (entindex >= 1 && entindex < 1+Player2.maxPlayers)
-								pl = Player2.getByEntIndex(entindex);
+							Player* pl;
+							if (entindex >= 1 && entindex < 1+Player.maxPlayers)
+								pl = Player.getByEntIndex(entindex);
 
 							int classid = -1;
 							int pvs = -1;
@@ -1132,8 +1132,8 @@ private:
 						// sound by a player? check if it's a noise maker
 						// 2022-08-16_19-13-21_4.dem
 						if (soundname)
-						if (entindex >= 1 && entindex <= Player2.maxPlayers)
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (entindex >= 1 && entindex <= Player.maxPlayers)
+						if (Player* pl = Player.getByEntIndex(entindex))
 						{
 							// https://wiki.teamfortress.com/wiki/Noise_Maker
 							// https://github.com/SteamDatabase/GameTracking-TF2/blob/master/tf/tf2_misc_dir/scripts/game_sounds_player.txt
@@ -1422,7 +1422,7 @@ private:
 					{
 						if (gameState.classes[ent.classid].name == "CTEPlayerDecal")
 						{
-							Player2* pl = Player2.getByEntIndex(ent.prop!int("m_nPlayer"));
+							Player* pl = Player.getByEntIndex(ent.prop!int("m_nPlayer"));
 
 							if (pl)
 								printf("-player used spray: %s\n", pl.ttyname);
@@ -1559,7 +1559,7 @@ private:
 					ubyte[] data       = buf.ReadDBitArray(length);
 
 					// force: this might come after they disconnect, see 2022-07-31_05-55-35.dem
-					Player2* pl = Player2.getBySlotIndex(fromClient, /* force */ true);
+					Player* pl = Player.getBySlotIndex(fromClient, /* force */ true);
 					assert(pl);
 
 					if (!pl.usedVoiceChat)
@@ -1635,7 +1635,7 @@ private:
 					{
 						case "CTFPlayer":
 						{
-							Player2* pl = Player2.getByEntIndex(entindex);
+							Player* pl = Player.getByEntIndex(entindex);
 							assert(pl);
 
 							int type = sbuf.ReadByte();
@@ -1688,11 +1688,11 @@ private:
 							auto ent = demoreader.entitystuff.gameState.entities[entindex];
 							assert(ent);
 
-							Player2* owner;
+							Player* owner;
 							if (ent)
 							{
 								auto ownerent = ent.prop!int("m_hOwnerEntity", -1);
-								owner = Player2.getByEntIndex(ownerent & 0x7ff);
+								owner = Player.getByEntIndex(ownerent & 0x7ff);
 							}
 
 							//printf("-unknown CTFWearableCampaignItem entity message: value=%d m_nState=%d entindex=%d owner=%s\n",
@@ -2009,9 +2009,9 @@ private:
 					if (TRACE1)
 					{
 						printf("   entity=%u\n", entity);
-						if (entity >= 1 && entity <= Player2.maxPlayers)
+						if (entity >= 1 && entity <= Player.maxPlayers)
 						{
-							if (Player2* pl = Player2.getByEntIndex(entity))
+							if (Player* pl = Player.getByEntIndex(entity))
 								printf("   %s %s\n", pl.info.guid.ptr, pl.ttyname);
 						}
 					}
@@ -2150,7 +2150,7 @@ private:
 					ownPlayerSlot = playerSlot;
 					assert(playerSlot >= 0 && ownPlayerSlot < maxClients);
 
-					Player2.createSlots(maxClients);
+					Player.createSlots(maxClients);
 
 					JsonOutput.setMapName(mapName);
 
@@ -2383,13 +2383,13 @@ private:
 				uint menu   = msgbuf.ReadByte();
 				uint item   = msgbuf.ReadByte();
 
-				Player2* pl = Player2.getByEntIndex(client);
+				Player* pl = Player.getByEntIndex(client);
 				assert(pl);
 				//pl.onSpawnedActivity(); // might be a spy?
 
 				// why does this happen?
 				// sometimes we get voice commands from the enemy team
-				Player2* localPlayer = Player2.getBySlotIndex(ownPlayerSlot);
+				Player* localPlayer = Player.getBySlotIndex(ownPlayerSlot);
 				assert(localPlayer);
 				if (pl.team && localPlayer.team && pl.team != localPlayer.team)
 				{
@@ -2453,7 +2453,7 @@ private:
 
 					// client is valid
 					// "system" messages have the local player here
-					Player2* pl = Player2.getByEntIndex(client);
+					Player* pl = Player.getByEntIndex(client);
 					assert(pl);
 
 					logStamp();
@@ -2471,7 +2471,7 @@ private:
 				char[] l2          = msgbuf.ReadDString(); // (always empty?)
 
 				// force: fix demos/2022-07-21_18-16-42.dem
-				Player2* pl = Player2.getByEntIndex(client, /* force */ true);
+				Player* pl = Player.getByEntIndex(client, /* force */ true);
 				assert(pl);
 
 				if (channel.canFind("Spec"))
@@ -2625,7 +2625,7 @@ private:
 					{
 						// force: fix 2022-07-24_15-50-15.dem
 						// this might come after userinfo is removed if they're being kicked
-						Player2* pl = Player2.getByName(arg1, /* force */ true);
+						Player* pl = Player.getByName(arg1, /* force */ true);
 						if (isOfficialServer)
 							assert(pl);
 						if (!pl) // skial/sus.dem
@@ -2637,7 +2637,7 @@ private:
 					case "#game_idle_kick":
 					{
 						// force: fix 2022-07-18_18-04-16.dem
-						Player2* pl = Player2.getByName(arg1, /* force */ true);
+						Player* pl = Player.getByName(arg1, /* force */ true);
 						assert(pl);
 						if (g_htmlOut)
 							htmlSimpleRow(
@@ -2651,7 +2651,7 @@ private:
 
 					case "#game_player_was_team_balanced":
 					{
-						Player2* pl = Player2.getByName(arg1);
+						Player* pl = Player.getByName(arg1);
 						assert(pl);
 						if (g_htmlOut)
 							htmlSimpleRow(
@@ -2782,25 +2782,25 @@ private:
 				uint   unk2          = msgbuf.ReadOneBit();
 				uint   targetEntIdx  = msgbuf.GetNumBitsLeft() ? msgbuf.ReadByte() : 0;
 
-				Player2* issuer;
+				Player* issuer;
 				if (caller >= 1 && caller < 1+32)
 				{
-					issuer = Player2.getByEntIndex(caller);
+					issuer = Player.getByEntIndex(caller);
 					assert(issuer);
 					issuer.onSpawnedActivity();
 				}
 
-				Player2* target;
+				Player* target;
 				if (targetEntIdx)
 				{
-					target = Player2.getByEntIndex(targetEntIdx);
+					target = Player.getByEntIndex(targetEntIdx);
 					assert(target);
 					assert(target.nameEquals(param1));
 					target.onSpawnedActivity();
 				}
 
 				if (issuer && target)
-					Player2.impliedSameTeam(issuer, target);
+					Player.impliedSameTeam(issuer, target);
 
 				switch (issue)
 				{
@@ -2887,7 +2887,7 @@ private:
 					case "TF_vote_passed_ban_player":
 					{
 						char[] playerName = detail;
-						Player2* pl = Player2.getByName(playerName, /* force */ true);
+						Player* pl = Player.getByName(playerName, /* force */ true);
 						if (g_htmlOut)
 							htmlSimpleRow(
 								"<strong>Vote:</strong> Vote passed, banning player: %s",
@@ -2903,7 +2903,7 @@ private:
 					case "TF_vote_passed_kick_player":
 					{
 						char[] playerName = detail;
-						Player2* pl = Player2.getByName(playerName, /* force */ true);
+						Player* pl = Player.getByName(playerName, /* force */ true);
 						if (g_htmlOut)
 							htmlSimpleRow(
 								"<strong>Vote:</strong> Vote passed, kicking player: %s",
@@ -3037,7 +3037,7 @@ private:
 				int  achievement = args.get!short("achievement", gameEvents);
 				uint player      = args.get!ubyte("player", gameEvents);
 
-				Player2* pl = Player2.getByEntIndex(player);
+				Player* pl = Player.getByEntIndex(player);
 				assert(pl);
 				log("%s earned achievement %d", pl.ttyname, achievement);
 
@@ -3067,7 +3067,7 @@ private:
 				assert(x == 0xca7);
 				assert(y == 1234567);
 
-				Player2* pl = Player2.getByEntIndex(player);
+				Player* pl = Player.getByEntIndex(player);
 				assert(pl);
 				printf("-player used cl_drawline: %s\n", pl.ttyname);
 
@@ -3115,7 +3115,7 @@ private:
 
 				// force: this might come after they disconnect for "Processing time exceeded"
 				// see 2022-07-24_21-23-50.dem
-				Player2* pl = Player2.getByUserId(userid, /* force */ true);
+				Player* pl = Player.getByUserId(userid, /* force */ true);
 				//assert(pl);
 				if (pl) // fixme: 2022-10-10_16-45-07.dem
 				{
@@ -3137,7 +3137,7 @@ private:
 					captured = 2,
 				}
 
-				Player2* pl = Player2.getByEntIndex(player);
+				Player* pl = Player.getByEntIndex(player);
 
 				if (g_htmlOut)
 				if (pl && type == captured)
@@ -3190,7 +3190,7 @@ private:
 				 * 
 				 * force: get the slot even if the player is disconnected
 				 */
-				if (Player2* pl = Player2.getBySlotIndex(index, /* force */ true))
+				if (Player* pl = Player.getBySlotIndex(index, /* force */ true))
 				{
 					bool sameUserId = (pl.info.userID == userid);
 					bool sameSteamId = pl.steamIdEquals(networkid);
@@ -3248,20 +3248,20 @@ private:
 						{
 							// same steamid, so they're probably reconnecting
 							// make sure the old one is marked as disconnected
-							pl.setDisconnected(Player2.DisconnectReason.reconnectMessage);
+							pl.setDisconnected(Player.DisconnectReason.reconnectMessage);
 						}
-						Player2.createForConnectingUser(name, index, userid, networkid);
+						Player.createForConnectingUser(name, index, userid, networkid);
 					}
 				}
 				else
 				{
 					// ok, slot has no player in it yet
-					Player2.createForConnectingUser(name, index, userid, networkid);
+					Player.createForConnectingUser(name, index, userid, networkid);
 				}
-				debug Player2.check(); // consistency
+				debug Player.check(); // consistency
 
 				// it's created now
-				Player2* pl = Player2.getBySlotIndex(index);
+				Player* pl = Player.getBySlotIndex(index);
 				assert(pl);
 				assert(pl.info.userID == userid);
 
@@ -3286,16 +3286,16 @@ private:
 				bool isCrit = (crit_type == 2); // 1 = mini, 2 = proper
 
 				// killer, if there is one
-				Player2* killer;
+				Player* killer;
 				if (attacker)
 				{
-					killer = Player2.getByUserId(attacker);
+					killer = Player.getByUserId(attacker);
 					assert(killer);
 					killer.onSpawnedActivity();
 				}
 
 				// victim
-				Player2* victim = Player2.getByUserId(userid);
+				Player* victim = Player.getByUserId(userid);
 				assert(victim);
 				victim.onSpawnedActivity();
 
@@ -3400,7 +3400,7 @@ private:
 				// fix up teams
 				// NOTE: ignore "finished off" because it can happen when the player is autobalanced
 				if (weapon != "player" && !isFriendlyFireEnabled)
-					Player2.impliedOppositeTeams(killer, victim);
+					Player.impliedOppositeTeams(killer, victim);
 
 				if (g_htmlOut)
 					htmlSimpleRow(
@@ -3433,9 +3433,9 @@ private:
 				 * also, the same userid might not exist anymore if they
 				 *  reconnected while connecting (userinfo slot reused instantly)
 				 */
-				Player2* pl = Player2.getByUserId(userid, /* force */ true);
+				Player* pl = Player.getByUserId(userid, /* force */ true);
 				if (pl)
-					pl.setDisconnected(Player2.DisconnectReason.disconnectMessage);
+					pl.setDisconnected(Player.DisconnectReason.disconnectMessage);
 
 				// end the reason string at the first newline
 				const(char)[] shortreason = reason;
@@ -3571,7 +3571,7 @@ private:
 					}
 				}
 
-				if (Player2* pl = Player2.getByUserId(userid))
+				if (Player* pl = Player.getByUserId(userid))
 				{
 					if (!isPreConnect)
 					{
@@ -3598,7 +3598,7 @@ private:
 						// check that the userid is nonexistent, not just disconnected
 						// !!!FIXME!!! check why this fails in 2022-09-04_20-01-46.dem
 						// another: 2022-09-25_22-17-33.dem
-						if (Player2* pl = Player2.getByUserId(userid, true))
+						if (Player* pl = Player.getByUserId(userid, true))
 						{
 							//if (filePath.baseName != "2022-09-04_20-01-46.dem")
 							//	assert(0);
@@ -3627,7 +3627,7 @@ private:
 				if (fileName == "2022-10-14_20-10-56_2.dem") // fixme
 					getDisconnected = true;
 
-				Player2* pl = Player2.getByUserId(userid, /* force */ getDisconnected);
+				Player* pl = Player.getByUserId(userid, /* force */ getDisconnected);
 				assert(pl);
 				pl.impliedTeam(team, /* force */ true); // override old team
 
@@ -3682,7 +3682,7 @@ private:
 				/**/             ? args.get!int("voteidx", gameEvents)
 				/**/             : 0;
 
-				Player2* pl = Player2.getByEntIndex(entityid);
+				Player* pl = Player.getByEntIndex(entityid);
 				assert(pl);
 				if (team) // skial
 					pl.impliedTeam(team);
@@ -3757,7 +3757,7 @@ private:
 				uint  quality    = args.get!ubyte("quality", gameEvents);
 				float wear       = args.get!float("wear", gameEvents);
 
-				Player2* pl = Player2.getByEntIndex(playerSlot);
+				Player* pl = Player.getByEntIndex(playerSlot);
 				assert(pl);
 
 				static immutable const(char)*[256] hasWhat = [
@@ -4347,7 +4347,7 @@ unittest
 	assert(htmlspecialchars(">") == "&gt;");
 }
 
-string playerToTeamName(Player2* pl)
+string playerToTeamName(Player* pl)
 {
 	if (pl)
 	{
@@ -4430,7 +4430,7 @@ const(char)[] htmlSourceModColoredText(const(char)[] s)
 	return ap[][0..$-1];
 }
 
-const(char)[] htmlPlayerName(Player2* pl)
+const(char)[] htmlPlayerName(Player* pl)
 {
 	auto ap = appender!string;
 

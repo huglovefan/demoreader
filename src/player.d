@@ -14,12 +14,12 @@ import demoreader.ttycolor;
 import demoreader.valve.demofiledump;
 
 // cleanup todo: remove cases where it's passed as an argument now that this is a global
-private Player2.UserInfoSource stringTableUpdateSource(ref const(StringTables) stringTables)
+private Player.UserInfoSource stringTableUpdateSource(ref const(StringTables) stringTables)
 {
 	return stringTables.updateSource.toUserInfoSource;
 }
 
-struct Player2
+struct Player
 {
 	const int      slotIndex;       /// 0-based slot number
 	player_info_t* info;            /// player info struct from userinfo string table
@@ -38,11 +38,11 @@ struct Player2
 
 	static
 	{
-		private Player2*[] slots;
+		private Player*[] slots;
 
 		/// all players seen throughout the game
-		/// accountid -> Player2
-		private Player2*[uint] seenPlayers;
+		/// accountid -> Player
+		private Player*[uint] seenPlayers;
 
 		void reset()
 		{
@@ -81,7 +81,7 @@ struct Player2
 		}
 
 		/// check that it's ok to add this player (there are no pre-existing duplicates)
-		void checkPlayerBeingAdded(Player2* self)
+		void checkPlayerBeingAdded(Player* self)
 		{
 			debug assert(!self.hasDisconnected); // random sanity check
 
@@ -96,7 +96,7 @@ struct Player2
 			}
 		}
 
-		private void checkNotSame(Player2* self, Player2* other)
+		private void checkNotSame(Player* self, Player* other)
 		{
 			// note: ignore guid check for bots (but the other properties should still be unique)
 			if (
@@ -209,7 +209,7 @@ struct Player2
 	}
 
 	/// something suggests that these players are on the same team
-	static void impliedSameTeam(Player2* p1, Player2* p2)
+	static void impliedSameTeam(Player* p1, Player* p2)
 	{
 		if (p1.team == p2.team) // already same (ethereal or physical team)
 			return;
@@ -217,7 +217,7 @@ struct Player2
 		// sort lower team to p2
 		if (p1.team < p2.team)
 		{
-			Player2* tmp = p1;
+			Player* tmp = p1;
 			p1 = p2;
 			p2 = tmp;
 		}
@@ -239,15 +239,15 @@ struct Player2
 	}
 	unittest
 	{
-		Player2 pl1;
-		Player2 pl2;
+		Player pl1;
+		Player pl2;
 		bool thrown(int team1, int team2)
 		{
 			pl1.team = team1;
 			pl2.team = team2;
 			try
 			{
-				Player2.impliedSameTeam(&pl1, &pl2);
+				Player.impliedSameTeam(&pl1, &pl2);
 				return false;
 			}
 			catch (Throwable)
@@ -276,12 +276,12 @@ struct Player2
 	}
 
 	/// something suggests that these players are on opposite teams
-	static void impliedOppositeTeams(Player2* p1, Player2* p2)
+	static void impliedOppositeTeams(Player* p1, Player* p2)
 	{
 		// sort lower team to p2
 		if (p1.team < p2.team)
 		{
-			Player2* tmp = p1;
+			Player* tmp = p1;
 			p1 = p2;
 			p2 = tmp;
 		}
@@ -319,15 +319,15 @@ struct Player2
 	}
 	unittest
 	{
-		Player2 pl1;
-		Player2 pl2;
+		Player pl1;
+		Player pl2;
 		bool thrown(int team1, int team2)
 		{
 			pl1.team = team1;
 			pl2.team = team2;
 			try
 			{
-				Player2.impliedOppositeTeams(&pl1, &pl2);
+				Player.impliedOppositeTeams(&pl1, &pl2);
 				return false;
 			}
 			catch (Throwable)
@@ -607,7 +607,7 @@ struct Player2
 		slotReusedSamePlayer,      /// same player reconnecting
 		slotReusedDifferentPlayer, /// different player took the slot
 	}
-	void onRemoveEntry(RemoveReason reason, Player2* replacedBy)
+	void onRemoveEntry(RemoveReason reason, Player* replacedBy)
 	{
 		bool isOfficialServer = DemoReader.get().isOfficialServer;
 
@@ -620,7 +620,7 @@ struct Player2
 	 * 1. this player's userinfo was removed (slot became vacant)
 	 * 2. this player's userinfo was replaced by a different player's
 	 */
-	void onStringTableEntryReplacedOrRemoved(Player2* replacedBy, ref const(StringTables) stringTables)
+	void onStringTableEntryReplacedOrRemoved(Player* replacedBy, ref const(StringTables) stringTables)
 	{
 		// sanity
 		assert(hasDisconnected);
@@ -654,7 +654,7 @@ struct Player2
 	/**
 	 * called after creating the player struct, if we had one for that player before
 	 */
-	private void recreatedForSamePlayer(Player2* oldPlayer)
+	private void recreatedForSamePlayer(Player* oldPlayer)
 	{
 		bool isMatchMakingGame = DemoReader.get().isMatchMakingGame;
 
@@ -692,17 +692,17 @@ static:
 	void createSlots(int maxplayers)
 	{
 		debug assert(!slots);
-		slots = new Player2*[maxplayers];
+		slots = new Player*[maxplayers];
 	}
 
 	/**
 	 * called when userinfo for this player has been created (different userID
 	 *  from the previous one)
 	 */
-	Player2* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource, ref const(StringTables) stringTables)
+	Player* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource, ref const(StringTables) stringTables)
 	{
 		// get old player
-		Player2* old = slots[slotIndex];
+		Player* old = slots[slotIndex];
 
 		// already created by createForConnectingUser()?
 		if (old && old.info.userID == info.userID)
@@ -724,7 +724,7 @@ static:
 		if (old)
 			assert(old.hasDisconnected); // should've been set
 
-		Player2* pl = new Player2(slotIndex, info, updateSource);
+		Player* pl = new Player(slotIndex, info, updateSource);
 
 		// tell old player they're being removed
 		if (old)
@@ -767,7 +767,7 @@ static:
 			}
 		}
 
-		Player2.checkPlayerBeingAdded(pl);
+		Player.checkPlayerBeingAdded(pl);
 
 		slots[slotIndex] = pl;
 		recordSeenPlayer(pl);
@@ -776,7 +776,7 @@ static:
 	}
 
 	/**
-	 * create the Player2 for a connecting user
+	 * create the Player for a connecting user
 	 * 
 	 * called by the player_connect_client GameEvent (it often comes before the
 	 *  userinfo update)
@@ -790,10 +790,10 @@ static:
 		info.guid[0..networkid.length] = networkid;
 		info.guid[   networkid.length] = 0;
 
-		Player2* pl = new Player2(index, info, UserInfoSource.manuallyCreatedForConnectingPlayer);
+		Player* pl = new Player(index, info, UserInfoSource.manuallyCreatedForConnectingPlayer);
 
 		// remove slot's old player
-		if (Player2* old = slots[index])
+		if (Player* old = slots[index])
 		{
 			assert(old.info.userID != userid); // shouldn't be the one being created
 
@@ -805,7 +805,7 @@ static:
 				old.onRemoveEntry(RemoveReason.slotReusedDifferentPlayer, pl);
 		}
 
-		Player2.checkPlayerBeingAdded(pl);
+		Player.checkPlayerBeingAdded(pl);
 
 		slots[index] = pl;
 		recordSeenPlayer(pl);
@@ -814,7 +814,7 @@ static:
 	/**
 	 * called after creating a player
 	 */
-	private static void recordSeenPlayer(Player2* pl)
+	private static void recordSeenPlayer(Player* pl)
 	{
 		assert(slots[pl.slotIndex] == pl); // properly created
 
@@ -824,7 +824,7 @@ static:
 		/*
 		 * call .recreatedForSamePlayer() if we had a player struct for this player before
 		 */
-		if (Player2** oldp = pl.accountid in seenPlayers)
+		if (Player** oldp = pl.accountid in seenPlayers)
 		{
 			auto old = *oldp;
 
@@ -846,18 +846,18 @@ static:
 		JsonOutput.steamIdSeen(pl.info.guid.fromStringz);
 	}
 
-	Player2* getBySlotIndex(int slotIndex, bool force = false)
+	Player* getBySlotIndex(int slotIndex, bool force = false)
 	{
 		assert(slots);
-		Player2* pl = slots[slotIndex];
+		Player* pl = slots[slotIndex];
 		return (pl && (!pl.hasDisconnected || force)) ? pl : null;
 	}
 
-	Player2* getByEntIndex(int entindex, bool force = false)
+	Player* getByEntIndex(int entindex, bool force = false)
 	{
 		if (entindex >= 1 && entindex <= slots.length)
 		{
-			Player2* pl = slots[entindex-1];
+			Player* pl = slots[entindex-1];
 			return (pl && (!pl.hasDisconnected || force)) ? pl : null;
 		}
 		else
@@ -868,7 +868,7 @@ static:
 		}
 	}
 
-	Player2* getByUserId(int userid, bool force = false)
+	Player* getByUserId(int userid, bool force = false)
 	{
 		assert(slots);
 		foreach (sl; slots)
@@ -879,7 +879,7 @@ static:
 		return null;
 	}
 
-	Player2* getByName(const(char)[] name, bool force = false)
+	Player* getByName(const(char)[] name, bool force = false)
 	{
 		assert(slots);
 		if (!force)
@@ -897,8 +897,8 @@ static:
 			 * consider also disconnected players, but prefer connected ones
 			 */
 			{
-				Player2*[2] foundPlayer;
-				uint[2]     foundCount;
+				Player*[2] foundPlayer;
+				uint[2]    foundCount;
 				foreach (sl; slots)
 				{
 					if (sl && sl.nameEquals(name))
@@ -937,8 +937,8 @@ static:
 			 * search historical players in case their player slot was already recycled
 			 */
 			{
-				Player2* found;
-				int      count;
+				Player* found;
+				int     count;
 				foreach (pl; seenPlayers)
 				{
 					if (pl.hasDisconnected && pl.nameEquals(name))
@@ -961,7 +961,7 @@ static:
 		}
 	}
 
-	Player2* getBySteamId(const(char)[] steamid)
+	Player* getBySteamId(const(char)[] steamid)
 	{
 		assert(slots);
 		foreach (sl; slots)

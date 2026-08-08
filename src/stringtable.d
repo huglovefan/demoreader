@@ -25,9 +25,9 @@ enum StringTableSource
 }
 static assert(StringTableSource.svcCreateStringTable == 0);
 
-Player2.UserInfoSource toUserInfoSource(StringTableSource updateSource)
+Player.UserInfoSource toUserInfoSource(StringTableSource updateSource)
 {
-	return cast(Player2.UserInfoSource)updateSource;
+	return cast(Player.UserInfoSource)updateSource;
 }
 
 struct StringTables
@@ -77,7 +77,7 @@ struct StringTable
 	{
 		assert(entries.length <= maxEntries);
 		if (name == "userinfo")
-			Player2.check();
+			Player.check();
 	}
 }
 
@@ -220,7 +220,7 @@ struct StringTableEntry
 				// skip updates with the same data
 				if (newdata != olddata)
 				{
-					Player2* pl = Player2.getBySlotIndex(entryIndex, /* force */ true);
+					Player* pl = Player.getBySlotIndex(entryIndex, /* force */ true);
 					assert(pl);
 					pl.setUserInfo(newuser, updateSource.toUserInfoSource);
 
@@ -229,15 +229,15 @@ struct StringTableEntry
 			}
 			else
 			{
-				Player2* oldPl;
-				Player2* newPl;
+				Player* oldPl;
+				Player* newPl;
 
 				// old userid gone?
 				if (olduser && (!newuser || newuser.userID != olduser.userID))
 				{
-					oldPl = Player2.getBySlotIndex(entryIndex, /* force */ true);
+					oldPl = Player.getBySlotIndex(entryIndex, /* force */ true);
 					assert(oldPl);
-					oldPl.setDisconnected(Player2.DisconnectReason.userInfoRemoved);
+					oldPl.setDisconnected(Player.DisconnectReason.userInfoRemoved);
 				}
 
 				// new userid?
@@ -246,7 +246,7 @@ struct StringTableEntry
 					// note: can be the same as oldPl if it existed already
 					// (was created early by the join message thing)
 					// in that case, this works like a userinfo update
-					newPl = Player2.createForNewUserInfo(entryIndex, newuser, updateSource.toUserInfoSource, stringTables);
+					newPl = Player.createForNewUserInfo(entryIndex, newuser, updateSource.toUserInfoSource, stringTables);
 					assert(newPl);
 					newuser.checkCreate();
 				}

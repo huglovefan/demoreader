@@ -7,7 +7,7 @@ import std.math;
 import demoreader.entitystuff;
 import demoreader.entitystuff.datatable;
 import demoreader.globals : TRACE1;
-import demoreader.player : Player2;
+import demoreader.player : Player;
 import demoreader.valve.bitbuf;
 
 // -----------------------------------------------------------------------------
@@ -139,9 +139,9 @@ if (is(T : EntityProperty!U, U))
 
 						const(char)* name;
 
-						if (!name && entindex >= 1 && entindex <= Player2.maxPlayers)
+						if (!name && entindex >= 1 && entindex <= Player.maxPlayers)
 						{
-							Player2* pl = Player2.getByEntIndex(entindex);
+							Player* pl = Player.getByEntIndex(entindex);
 							if (pl)
 								name = pl.ttyname;
 						}
@@ -218,9 +218,9 @@ if (is(T : EntityProperty!U, U))
 						classname = gameState.classes[ent.classid].name.ptr;
 						pvs = ent.inPvs;
 					}
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 
