@@ -4,8 +4,8 @@
 module demoreader.util.bytereader;
 
 import core.sys.posix.fcntl;
-import core.sys.linux.sys.mman;
 import core.sys.posix.unistd;
+import core.sys.linux.sys.mman;
 import std.array : uninitializedArray;
 import std.exception;
 import std.file;

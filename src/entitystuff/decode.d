@@ -4,9 +4,11 @@ import core.stdc.stdio;
 import core.bitop;
 import std.array;
 import std.math;
-import demoreader.valve.bitbuf;
 import demoreader.entitystuff;
 import demoreader.entitystuff.datatable;
+import demoreader.globals : TRACE1;
+import demoreader.player : Player2;
+import demoreader.valve.bitbuf;
 
 // -----------------------------------------------------------------------------
 
@@ -83,10 +85,6 @@ if (is(T : EntityProperty!U, U))
 {
 	alias PropType(_ : EntityProperty!X, X) = X;
 	alias U = PropType!T;
-
-	// for trace print
-	import demoreader.globals : TRACE1;
-	import demoreader.player : Player2;
 
 	static if (T.IsArray)
 	{

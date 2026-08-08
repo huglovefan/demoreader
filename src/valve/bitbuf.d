@@ -1,9 +1,10 @@
 module demoreader.valve.bitbuf;
 
+import core.stdc.stdio;
 import std.array : uninitializedArray;
-import demoreader.valve.demofile : Vector, QAngle;
+import demoreader.util.byteprinter;
 import demoreader.valve.bitbufpure;
-debug import core.stdc.stdio : printf;
+import demoreader.valve.demofile : Vector;
 
 final class bf_read
 {
@@ -126,9 +127,6 @@ final class bf_read
 	pragma(inline, false)
 	void PrintBytes(const(char)* name = null)
 	{
-		import core.stdc.stdio;
-		import demoreader.util.byteprinter;
-
 		if (name)
 			printf("%s: ", name);
 

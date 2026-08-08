@@ -6,36 +6,37 @@
  */
 module demoreader.dr;
 
+import core.stdc.stdarg;
 import core.stdc.stdio;
 import core.stdc.stdlib;
-import core.stdc.string;
 import core.time;
 import std.algorithm;
 import std.array;
 import std.datetime.systime;
+import std.digest.md;
 import std.exception;
 import std.file;
+import std.math : log2;
 import std.mmfile;
 import std.path;
 import std.stdio : File;
 import std.string;
-import demoreader.util.byteprinter;
-import demoreader.util.bytereader;
 import demoreader.cdef.libsnappy;
-import demoreader.util.filewatch;
+import demoreader.entitystuff;
+import demoreader.entitystuff.decode;
 import demoreader.gameevent;
 import demoreader.globals;
 import demoreader.jsonoutput;
+import demoreader.lzss;
 import demoreader.player;
-import demoreader.util.sprint;
 import demoreader.stringtable;
 import demoreader.ttycolor;
+import demoreader.util.bytereader;
+import demoreader.util.filewatch;
+import demoreader.util.sprint;
 import demoreader.valve.bitbuf;
 import demoreader.valve.demofile;
 import demoreader.vote;
-static import std.file;
-
-static import demoreader.entitystuff; // test
 
 enum ubyte INVALID_PLAYER_SLOT = ubyte.max;
 
@@ -785,8 +786,6 @@ private:
 
 			case dem_synctick:
 			{
-				import demoreader.entitystuff : gameState;
-
 				tracePrint();
 
 				if (signonState != 5)
@@ -1396,9 +1395,6 @@ private:
 					/**/            : buf.ReadUBitLong(NET_MAX_PAYLOAD_BITS_V23);
 					scope sbuf = new bf_read(buf, length);
 
-					import demoreader.entitystuff;
-					import demoreader.entitystuff.decode;
-
 					Entity ent;
 
 					if (!numEntries)
@@ -1811,8 +1807,6 @@ private:
 
 				case svc_createstringtable:
 				{
-					import std.math : log2;
-
 					enum NET_MAX_PAYLOAD_BITS_V23 = 17;
 
 					char[]  tableName         = buf.ReadDString();
@@ -1878,8 +1872,6 @@ private:
 						}
 						else if (method == "LZSS")
 						{
-							import demoreader.lzss;
-
 							ubyte[] comp = data;
 							ubyte[] decomp = uninitializedArray!(ubyte[])(usize);
 
@@ -3877,8 +3869,6 @@ private:
 	 */
 	void saveGameEventList(ubyte[] data)
 	{
-		import etc.c.zlib;
-
 		if (!isOfficialServer)
 			return; // 不要 (do not want)
 
@@ -4004,7 +3994,6 @@ private:
 	extern(C) pragma(printf)
 	void htmlSimpleRow(const(char)* fmt, ...)
 	{
-		import core.stdc.stdarg;
 		va_list ap;
 		htmlBeginRow();
 		va_start(ap, fmt);
@@ -4255,8 +4244,6 @@ static:
 // unused, but this is how the map md5 in svc_serverinfo is calculated
 ubyte[16] getMapChecksum(string path)
 {
-	import std.digest.md;
-
 	static struct BspLump
 	{
 		int     fileofs;

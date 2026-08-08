@@ -4,21 +4,16 @@
  */
 module demoreader.entitystuff;
 
-import core.bitop;
 import core.stdc.stdio;
-import std.algorithm.mutation : swap;
 import std.array;
-import std.exception;
-import std.math;
-import std.string;
-import demoreader.globals;
-import demoreader.stringtable;
-import demoreader.valve.bitbuf;
-static import demoreader.player;
-import demoreader.entitystuff.decode;
-import demoreader.entitystuff.datatable;
 import std.container.dlist;
+import std.exception;
+import std.string;
+import demoreader.entitystuff.datatable;
+import demoreader.entitystuff.decode;
+import demoreader.globals;
 import demoreader.player : Player2;
+import demoreader.valve.bitbuf;
 
 __gshared GameState gameState;
 

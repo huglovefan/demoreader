@@ -1,6 +1,5 @@
 module demoreader.main;
 
-import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import core.sys.posix.signal;
@@ -9,17 +8,19 @@ import core.sys.posix.unistd;
 import core.time;
 import std.algorithm;
 import std.array;
+import std.ascii;
 import std.file;
 import std.path;
 import std.process;
-import std.string;
 import std.stdio : File;
+import std.string;
 import demoreader.dr;
-import demoreader.util.filewatch;
-import demoreader.util.glob;
+import demoreader.globals;
 import demoreader.jsonoutput;
 import demoreader.markfile;
-import demoreader.globals;
+import demoreader.util.filewatch;
+import demoreader.util.glob;
+static import std.stdio;
 
 // ex: --DRT-gcopt=profile:1
 extern(C) __gshared bool rt_cmdline_enabled = true;
@@ -112,8 +113,6 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 			version(Posix)
 			case "-pager":
 			{
-				import std.stdio : stdin, stdout, stderr; // need the D ones
-
 				// ignore duplicate -pager
 				if ("_DEMOREADER_IN_PAGER" in environment)
 					break;
@@ -148,14 +147,13 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 						output.close();
 
 					signal(SIGINT, SIG_IGN); // ignore: allow ^C to interrupt scrolling in less
-					dr = spawnProcess(newargs, stdin, output.writeEnd, output.writeEnd, ["_DEMOREADER_IN_PAGER": "1"]);
+					dr = spawnProcess(newargs, std.stdio.stdin, output.writeEnd, output.writeEnd, ["_DEMOREADER_IN_PAGER": "1"]);
 
 					signal(SIGINT, SIG_DFL); // default
-					less = spawnShell(pagerCmd, output.readEnd, stdout, stderr);
+					less = spawnShell(pagerCmd, output.readEnd, std.stdio.stdout, std.stdio.stderr);
 				}
 				catch (Exception e)
 				{
-					import core.stdc.stdio : stderr; // C one again
 					fprintf(stderr, "demoreader: failed to start pager: %.*s\n", cast(int)e.msg.length, e.msg.ptr);
 					exit(1);
 				}
@@ -742,7 +740,6 @@ bool demoNameCompareFn(string p1, string p2)
 		 * check duplicate count (if both have underscore + digit here)
 		 */
 
-		import std.ascii;
 		if (
 			p1.isAutoNamedDemo &&
 			p2.isAutoNamedDemo &&

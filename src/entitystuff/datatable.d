@@ -5,19 +5,15 @@
  */
 module demoreader.entitystuff.datatable;
 
-import core.bitop;
 import core.stdc.stdio;
 import std.algorithm.mutation : swap;
 import std.array;
 import std.exception;
-import std.math;
-import std.string;
+import demoreader.entitystuff;
+import demoreader.entitystuff.decode;
 import demoreader.globals;
 import demoreader.stringtable;
 import demoreader.valve.bitbuf;
-static import demoreader.player;
-import demoreader.entitystuff.decode;
-import demoreader.entitystuff;
 
 enum SendPropType
 {

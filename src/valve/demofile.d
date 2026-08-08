@@ -1,5 +1,7 @@
 module demoreader.valve.demofile;
 
+import core.stdc.stdio;
+
 // -----------------------------------------------------------------------------
 
 /*
@@ -75,8 +77,6 @@ struct demoheader_t
 
 	void print()
 	{
-		import core.stdc.stdio;
-
 		printf("demofilestamp     %s\n", demofilestamp.ptr);
 		printf("demoprotocol      %d\n", demoprotocol);
 		printf("networkprotocol   %d\n", networkprotocol);

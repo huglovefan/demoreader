@@ -258,7 +258,6 @@ struct GameEventParamValue
 
 		debug
 		{
-			import core.stdc.stdio;
 			if (spec.type != wanttype)
 			{
 				fprintf(stderr, "-tried to get %s as %s but it is %s\n", spec.name.ptr, T.stringof.ptr, Param.typeName(spec.type).ptr);

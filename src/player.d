@@ -6,15 +6,16 @@ module demoreader.player;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import std.string;
-import demoreader.jsonoutput;
+import demoreader.dr : DemoReader;
 import demoreader.globals : g_marks, g_printPlayerSteamIds, g_printPlayerUserIds, g_useColor;
+import demoreader.jsonoutput;
+import demoreader.stringtable;
 import demoreader.ttycolor;
 import demoreader.valve.demofiledump;
 
 // cleanup todo: remove cases where it's passed as an argument now that this is a global
 private Player2.UserInfoSource stringTableUpdateSource()
 {
-	import demoreader.stringtable;
 	return StringTable.updateSource.toUserInfoSource;
 }
 
@@ -139,7 +140,7 @@ struct Player2
 	/// true if this is the player who's recording the demo
 	bool isLocalPlayer()
 	{
-		import demoreader.dr : DemoReader, INVALID_PLAYER_SLOT;
+		debug import demoreader.dr : INVALID_PLAYER_SLOT;
 
 		auto dr = DemoReader.get();
 
@@ -477,7 +478,6 @@ struct Player2
 			{
 				assert(!hasDisconnected); // can't change after disconnect
 
-				import demoreader.dr : DemoReader;
 				bool lateChangeFalsePositive = (
 					accountid == 231928243 && DemoReader.get().fileName == "2022-08-17_03-27-22.dem" ||
 					accountid == 182322040 && DemoReader.get().fileName == "2022-10-10_06-47-32.dem" ||
@@ -537,7 +537,6 @@ struct Player2
 				default:
 				{
 					// false positive !!!FIXME!!!
-					import demoreader.dr : DemoReader;
 					if (
 						(accountid % 10000) == 8243 &&
 						DemoReader.get().fileName == "2022-08-17_03-27-22.dem")
@@ -610,7 +609,6 @@ struct Player2
 	}
 	void onRemoveEntry(RemoveReason reason, Player2* replacedBy)
 	{
-		import demoreader.dr : DemoReader;
 		bool isOfficialServer = DemoReader.get().isOfficialServer;
 
 		if (reason != RemoveReason.demoEnded)
@@ -658,7 +656,6 @@ struct Player2
 	 */
 	private void recreatedForSamePlayer(Player2* oldPlayer)
 	{
-		import demoreader.dr : DemoReader;
 		bool isMatchMakingGame = DemoReader.get().isMatchMakingGame;
 
 		assert(oldPlayer.accountid == this.accountid);

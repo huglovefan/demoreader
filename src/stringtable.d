@@ -4,12 +4,14 @@
 module demoreader.stringtable;
 
 import core.stdc.stdio;
+import core.stdc.stdlib : atoi;
 import std.algorithm;
 import std.array;
+import std.math : log2;
 import demoreader.globals;
+import demoreader.player;
 import demoreader.valve.bitbuf;
 import demoreader.valve.demofiledump;
-import demoreader.player;
 static import demoreader.entitystuff;
 
 enum trace1 = false; // print table names for trace1
@@ -96,7 +98,6 @@ struct StringTableEntry
 				info.guid[0] == 'S' &&
 				st.name == "userinfo")
 			{
-				import core.stdc.stdlib : atoi;
 				uint a = atoi(&info.guid["STEAM_0:".length]);
 				uint b = atoi(&info.guid["STEAM_0:0:".length]);
 				uint accountid = b << 1 | a;
@@ -518,8 +519,6 @@ void readDemoStringTables(bf_read buf)
  */
 void updateStringTable(bf_read sbuf, StringTable* st, uint numEntries)
 {
-	import std.math : log2;
-
 	enum print = false;
 	enum printhdr = false;
 	enum printjoin = false;
