@@ -92,7 +92,6 @@ final class bf_read
 		}
 		else
 		{
-			pragma(inline, true);
 			assert(nBits <= GetNumBitsLeft(), "bf_read overflow");
 		}
 	}
@@ -124,7 +123,6 @@ final class bf_read
 		return rv;
 	}
 
-	pragma(inline, false)
 	void PrintBytes(const(char)* name = null)
 	{
 		if (name)
@@ -518,7 +516,6 @@ private:
 // -----------------------------------------------------------------------------
 
 /// bit count to byte count (rounded up)
-pragma(inline, true)
 T BitByte(T)(T v)
 {
 	//return v + 7 >> 3; // not overflow-safe!!
@@ -559,7 +556,6 @@ enum NORMAL_RESOLUTION      = 1.0f/NORMAL_DENOMINATOR;
 enum kMaxVarintBytes = 10;
 enum kMaxVarint32Bytes = 5;
 
-pragma(inline, true)
 uint GetBitForBitnum(uint bitNum)
 {
 	return 1 << (bitNum % 32); 
@@ -574,19 +570,16 @@ struct StringReadBuf(size_t capacity)
 	size_t length;
 	char[capacity] data = void;
 
-	pragma(inline, true)
 	void opOpAssign(string op)(char c) if (op == "~")
 	{
 		data.ptr[length++] = c;
 	}
 
-	pragma(inline, true)
 	char[] opSlice()
 	{
 		return data.ptr[0..length];
 	}
 
-	pragma(inline, true)
 	bool full()
 	{
 		return length == capacity;

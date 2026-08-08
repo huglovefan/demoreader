@@ -104,7 +104,6 @@ struct FileWatch
 	 * magically wait for a change to occur, then call hasChanged()
 	 */
 	version(linux)
-	pragma(inline, false) // not performance-critical
 	void waitChanged()
 	in (path)
 	{
@@ -178,14 +177,12 @@ struct FileWatch
 		}
 	}
 	else // !version(linux)
-	pragma(inline, false) // not performance-critical
 	void waitChanged()
 	in (path)
 	{
 		return waitChangedFallback();
 	}
 
-	pragma(inline, false)
 	private void waitChangedFallback()
 	{
 		while (!hasChanged)

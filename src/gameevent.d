@@ -181,7 +181,6 @@ struct GameEventArgsLazy
 		return args.get!T(name, defval, gameEvents);
 	}
 
-	pragma(inline, false) // called only once
 	void doParse(ref GameEvents gameEvents)
 	{
 		args = gameEvents.get(eventId).parseEager(buf);

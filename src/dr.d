@@ -87,15 +87,12 @@ final class DemoReader
 	/// this makes entity parsing impossible since we don't get class data
 	bool         isBrokenDemoMissingDataTables;
 
-	pragma(inline, true)
-	{
-		bool serverAllowsSpectators()         { return !isOfficialServer; }
-		bool serverAllowsBots()               { return !isOfficialServer; }
-		bool serverAllowsTeamChange()         { return !isMatchMakingGame; }
-		bool serverAllowsNameChange()         { return !isOfficialServer; }
-		bool serverAllowsHalfLifeTelevision() { return !isOfficialServer; }
-		bool serverAllowsCustomFileDownload() { return !isOfficialServer; }
-	}
+	bool serverAllowsSpectators()         { return !isOfficialServer; }
+	bool serverAllowsBots()               { return !isOfficialServer; }
+	bool serverAllowsTeamChange()         { return !isMatchMakingGame; }
+	bool serverAllowsNameChange()         { return !isOfficialServer; }
+	bool serverAllowsHalfLifeTelevision() { return !isOfficialServer; }
+	bool serverAllowsCustomFileDownload() { return !isOfficialServer; }
 
 	string fileName()
 	{
@@ -2301,7 +2298,6 @@ private:
 		}
 	}
 
-	pragma(inline, false) // once per demo
 	void handleDataTables(ubyte[] data)
 	{
 		scope buf = new bf_read(data);
@@ -2309,7 +2305,6 @@ private:
 		assert(!buf.GetNumBytesLeft()); // byte-aligned
 	}
 
-	pragma(inline, false) // once per demo
 	void handleStringTables(ubyte[] data)
 	{
 		scope buf = new bf_read(data);
@@ -3799,7 +3794,6 @@ private:
 	/*
 	 * see: CGameEventManager::ParseEventList in engine/GameEventManager.cpp
 	 */
-	pragma(inline, false) // once per demo
 	void handleGameEventList(ubyte[] data)
 	{
 		enum MAX_EVENT_BITS = 9;

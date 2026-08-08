@@ -506,7 +506,6 @@ final class Entity
 		this.inPvs = inPvs;
 	}
 
-	pragma(inline, true)
 	auto prop(T)(string name, T defval = T.init) inout
 	{
 		int i = gameState.classes[classid].propertyIndex(name);
@@ -562,7 +561,6 @@ final class Entity
 
 class IEntityProperty
 {
-	pragma(inline, true)
 	final ref inout(T) value(T)() inout
 	{
 		auto self = cast(inout(EntityProperty!T))this;
@@ -868,7 +866,6 @@ struct GameState
 		FlattenedProp[] flattenedProps;
 		int[string]     propertyIndexCache;
 
-		pragma(inline, true)
 		int propertyIndex(string name)
 		{
 			if (int* p = name in propertyIndexCache)
@@ -877,7 +874,6 @@ struct GameState
 				return searchPropertyIndex(name);
 		}
 
-		pragma(inline, false)
 		int searchPropertyIndex(string name)
 		{
 			foreach (i, prop; flattenedProps)

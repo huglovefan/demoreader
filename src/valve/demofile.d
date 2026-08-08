@@ -114,7 +114,6 @@ struct Vector
 		this.tupleof = __traits(parameters);
 	}
 
-	pragma(inline, true)
 	ref float opIndex(size_t i) return
 	{
 		return (i == 0) ? x : (i == 1) ? y : (i == 2) ? z : *cast(float*)null;
@@ -137,7 +136,6 @@ struct QAngle
 		this.tupleof = __traits(parameters);
 	}
 
-	pragma(inline, true)
 	ref float opIndex(size_t i) return
 	{
 		return (i == 0) ? x : (i == 1) ? y : (i == 2) ? z : *cast(float*)null;

@@ -362,7 +362,6 @@ FloatParseType getFloatParseType(PropFlag flags) pure
 
 // src/Utils/ParserUtils.cs
 
-pragma(inline, true)
 int highestBitIndex(uint i)
 {
 	debug assert(i); // bsr is undefined for zero

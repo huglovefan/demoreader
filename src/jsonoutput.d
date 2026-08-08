@@ -52,7 +52,7 @@ static:
 		bool              ev_badPitch;
 	}
 
-	pragma(inline, true) bool isActive() { return active; }
+	bool isActive() { return active; }
 
 	void resetAndSetActive(bool b)
 	{

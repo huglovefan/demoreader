@@ -43,7 +43,6 @@ struct Players
 		seenPlayers = null;
 	}
 
-	pragma(inline, true)
 	size_t maxPlayers()
 	{
 		return slots.length;
@@ -489,7 +488,6 @@ struct Player
 	}
 
 	/// true if this player is simulated by the server
-	pragma(inline, true)
 	bool isBot()
 	{
 		// note: there's also .fakeplayer, but it's not reliably set unlike guid

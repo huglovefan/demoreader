@@ -36,7 +36,6 @@ struct ByteReader
 		return totalSize-data.length;
 	}
 
-	pragma(inline, true)
 	size_t remaining()
 	{
 		return data.length;

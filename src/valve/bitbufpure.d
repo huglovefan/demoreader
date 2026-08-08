@@ -55,7 +55,6 @@ static assert(toSigned(uint(0b1111_1111), 8) is -1);
 
 // note: might read past the end if T is bigger than the remaining data
 
-pragma(inline, true)
 T PureReadOneBit(T)(const(T)* data, uint bitNum)
 if (__traits(isUnsigned, T))
 {
