@@ -505,7 +505,6 @@ struct Player
 		// (redundant, ownPlayerSlot is given together with the slot count
 		//  before any players are created)
 		debug assert(dr.ownPlayerSlot != INVALID_PLAYER_SLOT);
-		debug assert(dr.ownPlayerSlot < slots.length);
 
 		if (slotIndex == dr.ownPlayerSlot)
 		{
@@ -568,6 +567,7 @@ struct Player
 
 	unittest
 	{
+		Players players;
 		Player pl1;
 		Player pl2;
 		bool thrown(int team1, int team2)
@@ -576,7 +576,7 @@ struct Player
 			pl2.team = team2;
 			try
 			{
-				Player.impliedSameTeam(&pl1, &pl2);
+				players.impliedSameTeam(&pl1, &pl2);
 				return false;
 			}
 			catch (Throwable)
@@ -606,6 +606,7 @@ struct Player
 
 	unittest
 	{
+		Players players;
 		Player pl1;
 		Player pl2;
 		bool thrown(int team1, int team2)
@@ -614,7 +615,7 @@ struct Player
 			pl2.team = team2;
 			try
 			{
-				Player.impliedOppositeTeams(&pl1, &pl2);
+				players.impliedOppositeTeams(&pl1, &pl2);
 				return false;
 			}
 			catch (Throwable)

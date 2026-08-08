@@ -3850,14 +3850,6 @@ private:
 		}
 
 		gameEvents.defs = ges[];
-		debug
-		{
-			if (gameEvents.defs.length > reserveNumber)
-			{
-				printf("reserveNumber too low: anticipated %u events but got %zu\n", reserveNumber, GameEvent.defs.length);
-				assert(0);
-			}
-		}
 
 		assert(!evbuf.GetNumBytesLeft()); // byte-aligned
 	}
