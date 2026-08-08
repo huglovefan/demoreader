@@ -14,9 +14,9 @@ import demoreader.ttycolor;
 import demoreader.valve.demofiledump;
 
 // cleanup todo: remove cases where it's passed as an argument now that this is a global
-private Player2.UserInfoSource stringTableUpdateSource()
+private Player2.UserInfoSource stringTableUpdateSource(ref const(StringTables) stringTables)
 {
-	return StringTable.updateSource.toUserInfoSource;
+	return stringTables.updateSource.toUserInfoSource;
 }
 
 struct Player2
@@ -620,7 +620,7 @@ struct Player2
 	 * 1. this player's userinfo was removed (slot became vacant)
 	 * 2. this player's userinfo was replaced by a different player's
 	 */
-	void onStringTableEntryReplacedOrRemoved(Player2* replacedBy)
+	void onStringTableEntryReplacedOrRemoved(Player2* replacedBy, ref const(StringTables) stringTables)
 	{
 		// sanity
 		assert(hasDisconnected);
@@ -633,7 +633,7 @@ struct Player2
 		 */
 		if (
 			userInfoSource == UserInfoSource.svcCreateStringTable &&
-			stringTableUpdateSource == UserInfoSource.demStringTables)
+			stringTableUpdateSource(stringTables) == UserInfoSource.demStringTables)
 		{
 			if (replacedBy)
 				printf("-ghost player: %s (replaced by %s)\n", ttyname, replacedBy.ttyname);
@@ -699,7 +699,7 @@ static:
 	 * called when userinfo for this player has been created (different userID
 	 *  from the previous one)
 	 */
-	Player2* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource)
+	Player2* createForNewUserInfo(int slotIndex, player_info_t* info, UserInfoSource updateSource, ref const(StringTables) stringTables)
 	{
 		// get old player
 		Player2* old = slots[slotIndex];
@@ -747,7 +747,7 @@ static:
 		 * current year comment: wouldn't a better fix be to mark all players in
 		 *  the early string table as disconnected, then have it mark the new ones as connected again?
 		 */
-		if (stringTableUpdateSource == UserInfoSource.demStringTables)
+		if (stringTableUpdateSource(stringTables) == UserInfoSource.demStringTables)
 		{
 			foreach (sl; slots)
 			{

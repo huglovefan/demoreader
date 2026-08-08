@@ -62,7 +62,7 @@ enum FloatParseType
 
 // src/Parser/Components/Packets/DataTables.cs
 
-void parseDataTables(bf_read buf)
+void parseDataTables(bf_read buf, ref const(StringTables) stringTables)
 {
 	alias DataTable = GameState.DataTable;
 	alias Class = GameState.Class;
@@ -98,7 +98,7 @@ void parseDataTables(bf_read buf)
 	// parse instance baselines now that we're able to do that
 	if (TRACE1)
 		printf("  -> parse the stored instance baselines\n");
-	auto st = StringTable.get("instancebaseline");
+	auto st = stringTables.get("instancebaseline");
 	assert(st, "missing instance baseline string table");
 	foreach (ent; st.entries)
 	{

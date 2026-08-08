@@ -47,6 +47,7 @@ final class DemoReader
 		FileWatch    fw;
 		ByteReader   br;
 		Votes        votes;
+		StringTables stringTables;
 	}
 
 	string       filePath;    /// path to demo file
@@ -237,7 +238,7 @@ final class DemoReader
 		scope(exit)
 		{
 			GameEvent.reset();
-			StringTable.reset();
+			stringTables.reset();
 			Player2.reset();
 			votes.reset();
 			demoreader.entitystuff.gameState.reset();
@@ -1119,7 +1120,7 @@ private:
 						}
 
 						const(char)[] soundname;
-						if (StringTable* st = StringTable.get("soundprecache"))
+						if (StringTable* st = stringTables.get("soundprecache"))
 						{
 							if (soundNum >= 0 && soundNum < st.entries.length)
 							{
@@ -1493,7 +1494,7 @@ private:
 					/**/            ? buf.ReadUBitLong(MAX_SOUND_INDEX_BITS)
 					/**/            : buf.ReadUBitLong(13);
 
-					StringTable* st = StringTable.get("soundprecache");
+					StringTable* st = stringTables.get("soundprecache");
 					assert(st);
 
 					if (soundIndex < st.entries.length)
@@ -1524,10 +1525,10 @@ private:
 
 					scope sbuf = new bf_read(buf, length);
 
-					StringTable* st = StringTable.get(tableId);
+					StringTable* st = stringTables.get(tableId);
 					assert(st);
 
-					updateStringTable(sbuf, st, changedEntries);
+					updateStringTable(sbuf, st, changedEntries, stringTables);
 
 					assert(!sbuf.GetNumBitsLeft()); // bit array
 
@@ -1840,14 +1841,14 @@ private:
 					}
 
 					// wasn't already created
-					assert(!StringTable.get(tableName));
+					assert(!stringTables.get(tableName));
 
 					StringTable* st      = new StringTable();
 					st.name              = tableName;
 					st.maxEntries        = maxEntries;
 					st.userDataFixedSize = !!userDataFixedSize;
 					st.userDataSizeBits  = userDataSizeBits;
-					StringTable.defs    ~= st;
+					stringTables.defs   ~= st;
 
 					scope sbuf = new bf_read(data, length);
 
@@ -1887,7 +1888,7 @@ private:
 						}
 					}
 
-					readCreateStringTable(sbuf, st, numEntries);
+					readCreateStringTable(sbuf, st, numEntries, stringTables);
 
 					break;
 				}
@@ -1955,7 +1956,7 @@ private:
 					/**/                     : 0;
 					uint   lowPriority       = buf.ReadOneBit();
 
-					StringTable* st = StringTable.get("decalprecache");
+					StringTable* st = stringTables.get("decalprecache");
 					assert(st);
 
 					const(char)[] textureName;
@@ -2302,7 +2303,7 @@ private:
 	void handleDataTables(ubyte[] data)
 	{
 		scope buf = new bf_read(data);
-		demoreader.entitystuff.parseDataTables(buf);
+		demoreader.entitystuff.parseDataTables(buf, stringTables);
 		assert(!buf.GetNumBytesLeft()); // byte-aligned
 	}
 
@@ -2311,7 +2312,7 @@ private:
 	{
 		scope buf = new bf_read(data);
 
-		readDemoStringTables(buf);
+		readDemoStringTables(buf, stringTables);
 
 		assert(!buf.GetNumBytesLeft()); // byte-aligned
 	}
