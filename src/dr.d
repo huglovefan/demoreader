@@ -767,6 +767,8 @@ private:
 			{
 				// end of time
 				tracePrint();
+				if (g_htmlOut)
+					htmlSimpleRow("End of demo.");
 				break;
 			}
 
@@ -1725,14 +1727,27 @@ private:
 					// server info thing
 					if (text.length && text[0] == '\n')
 					{
-						printf("%s", text.ptr);
-
 						enum buildColon = "\nBuild: ";
 						size_t i = text.indexOf(buildColon);
 						assert(i != -1);
 						buildNumber = atoi(&text[i+buildColon.length]);
 						assert(buildNumber);
 						JsonOutput.setBuildNumber(buildNumber);
+
+						if (g_htmlOut)
+						{
+							// trim, the hard way
+							while (text.length && text[0] == '\n')
+								text = text[1..$];
+							while (text.length && text[$-1] == '\n')
+							{
+								text[$-1] = 0;
+								text = text[0..$-1];
+							}
+							htmlSimpleRow("<pre>%s</pre>", htmlspecialchars(text).ptr);
+						}
+						else
+							printf("%s", text.ptr);
 					}
 					else
 					{
@@ -2407,7 +2422,20 @@ private:
 				}
 
 				if (msg)
-					log("%s %s: %s", "(Voice)".teamcolorize(pl.team), pl.ttyname, msg.ptr.teamcolorize);
+				{
+					if (g_htmlOut)
+						htmlSimpleRow(
+							"<span data-team=\"%s\">(Voice)</span>"~
+							" %s"~
+							"<nobr style=\"white-space: pre;\"> :  </nobr>"~
+							"<span class=\"saytext\">%s</span>",
+							playerToTeamName(pl).ptr,
+							htmlPlayerName(pl).ptr,
+							htmlspecialchars(msg).ptr,
+							);
+					else
+						log("%s %s: %s", "(Voice)".teamcolorize(pl.team), pl.ttyname, msg.ptr.teamcolorize);
+				}
 
 				break;
 			}
@@ -2434,7 +2462,10 @@ private:
 					assert(pl);
 
 					logStamp();
-					printSourceModColoredText(text);
+					if (g_htmlOut)
+						htmlSimpleRow("<b dir=\"auto\" lang>%s</b>", htmlSourceModColoredText(text).ptr);
+					else
+						printSourceModColoredText(text);
 					putchar('\n');
 
 					break;
@@ -2485,19 +2516,56 @@ private:
 				assert(l1 is null);
 				assert(l2 is null);
 
-				logStamp();
+				if (g_htmlOut)
+				{
+					bool printed;
 
-				bool sp;
-				if (channel.canFind("Dead"))
-					{ printf("%s", "*DEAD*".teamcolorize); sp = true; }
-				if (channel.canFind("Spec"))
-					{ printf("%s", "*SPEC*".teamcolorize); sp = true; }
-				if (channel.canFind("Team"))
-					{ printf("%s", "(TEAM)".teamcolorize); sp = true; }
-				if (sp)
-					printf(" ");
+					htmlBeginRow();
 
-				printf("%s :  %s\n", pl.ttyname, text.ptr.teamcolorize);
+					if (channel.canFind("Dead"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">*DEAD*</span>");
+						printed = true;
+					}
+					if (channel.canFind("Spec"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">*SPEC*</span>");
+						printed = true;
+					}
+					if (channel.canFind("Team"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">(TEAM)</span>");
+						printed = true;
+					}
+					if (printed)
+						fprintf(g_htmlOut, " ");
+
+					fprintf(g_htmlOut,
+						"%s"~
+						"<nobr style=\"white-space: pre;\"> :  </nobr>"~
+						"<span class=\"saytext\">%s</span>",
+						htmlPlayerName(pl).ptr,
+						htmlUserText(text).ptr,
+						);
+
+					htmlEndRow();
+				}
+				else
+				{
+					logStamp();
+
+					bool sp;
+					if (channel.canFind("Dead"))
+						{ printf("%s", "*DEAD*".teamcolorize); sp = true; }
+					if (channel.canFind("Spec"))
+						{ printf("%s", "*SPEC*".teamcolorize); sp = true; }
+					if (channel.canFind("Team"))
+						{ printf("%s", "(TEAM)".teamcolorize); sp = true; }
+					if (sp)
+						printf(" ");
+
+					printf("%s :  %s\n", pl.ttyname, text.ptr.teamcolorize);
+				}
 
 				switch (channel)
 				{
@@ -2576,7 +2644,13 @@ private:
 						// force: fix 2022-07-18_18-04-16.dem
 						Player2* pl = Player2.getByName(arg1, /* force */ true);
 						assert(pl);
-						log("%s has been idle for too long and has been kicked", pl.ttyname);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s has been idle for too long and has been kicked",
+								htmlPlayerName(pl).ptr,
+								);
+						else
+							log("%s has been idle for too long and has been kicked", pl.ttyname);
 						break;
 					}
 
@@ -2584,7 +2658,13 @@ private:
 					{
 						Player2* pl = Player2.getByName(arg1);
 						assert(pl);
-						log("%s was moved to the other team for game balance", pl.ttyname);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s was moved to the other team for game balance",
+								htmlPlayerName(pl).ptr,
+								);
+						else
+							log("%s was moved to the other team for game balance", pl.ttyname);
 						break;
 					}
 
@@ -2644,9 +2724,14 @@ private:
 							{
 								if (msgDest == Dest.talk)
 								{
-									logStamp();
-									printSourceModColoredText(line);
-									putchar('\n');
+									if (g_htmlOut)
+										htmlSimpleRow("<b dir=\"auto\" lang>%s</b>", htmlSourceModColoredText(line).ptr);
+									else
+									{
+										logStamp();
+										printSourceModColoredText(line);
+										putchar('\n');
+									}
 								}
 								else
 								{
@@ -2730,11 +2815,19 @@ private:
 					case "#TF_vote_kick_player_scamming":
 					{
 						assert(issuer && target);
-						log("Vote: %s wants to kick %s with reason: %s",
-							issuer.ttyname,
-							target.ttyname,
-							issue.ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> %s wants to kick %s with reason: %s",
+								htmlPlayerName(issuer).ptr,
+								htmlPlayerName(target).ptr,
+								htmlspecialchars(issue).ptr,
+								);
+						else
+							log("Vote: %s wants to kick %s with reason: %s",
+								issuer.ttyname,
+								target.ttyname,
+								issue.ptr,
+								);
 						break;
 					}
 
@@ -2800,7 +2893,13 @@ private:
 					{
 						char[] playerName = detail;
 						Player2* pl = Player2.getByName(playerName, /* force */ true);
-						log("Vote: Vote passed, banning player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> Vote passed, banning player: %s",
+								pl ? htmlPlayerName(pl).ptr : htmlUserText(playerName).ptr,
+								);
+						else
+							log("Vote: Vote passed, banning player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
 						break;
 					}
 
@@ -2810,7 +2909,13 @@ private:
 					{
 						char[] playerName = detail;
 						Player2* pl = Player2.getByName(playerName, /* force */ true);
-						log("Vote: Vote passed, kicking player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> Vote passed, kicking player: %s",
+								pl ? htmlPlayerName(pl).ptr : htmlUserText(playerName).ptr,
+								);
+						else
+							log("Vote: Vote passed, kicking player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
 						break;
 					}
 
@@ -2853,7 +2958,10 @@ private:
 				if (voteTeamIndex == 0 && reason == 0)
 					break;
 
-				log("Vote: Vote failed");
+				if (g_htmlOut)
+					htmlSimpleRow("<strong>Vote:</strong> Vote failed");
+				else
+					log("Vote: Vote failed");
 
 				Vote.get(voteIndex).remove();
 
@@ -3024,6 +3132,46 @@ private:
 				break;
 			}
 
+			case "teamplay_flag_event":
+			{
+				int type   = args.get!short("eventtype");
+				int player = args.get!short("player");
+
+				enum
+				{
+					captured = 2,
+				}
+
+				Player2* pl = Player2.getByEntIndex(player);
+
+				if (g_htmlOut)
+				if (pl && type == captured)
+					htmlSimpleRow("<strong>%s has CAPTURED the intelligence!</strong>", htmlPlayerName(pl).ptr);
+
+				break;
+			}
+
+			case "teamplay_round_active":
+			{
+				// teamplay_round_start: players teleported to spawn and frozen, countdown starts
+				// ^ might happen more than once if the countdown resets
+
+				// teamplay_round_active: round officially started
+
+				if (g_htmlOut)
+					htmlSimpleRow("--- Round Start ---");
+
+				break;
+			}
+
+			case "teamplay_game_over":
+			{
+				if (g_htmlOut)
+					htmlSimpleRow("--- Game Over ---");
+
+				break;
+			}
+
 			/*
 			 * "joined the game" message in the chat, the first (visible) sign
 			 *  that a player is connecting
@@ -3121,7 +3269,11 @@ private:
 				Player2* pl = Player2.getBySlotIndex(index);
 				assert(pl);
 				assert(pl.info.userID == userid);
-				log("%s has joined the game", pl.ttyname);
+
+				if (g_htmlOut)
+					htmlSimpleRow("%s has joined the game", htmlPlayerName(pl).ptr);
+				else
+					log("%s has joined the game", pl.ttyname);
 
 				break;
 			}
@@ -3161,19 +3313,34 @@ private:
 					if (weapon == "world")
 					{
 						// normal s*uicide
-						log("%s suicided.%s",
-							victim.ttyname,
-							isCrit ? " (crit)".ptr : "".ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s suicided.%s",
+								htmlPlayerName(victim).ptr,
+								isCrit ? " (crit)".ptr : "".ptr,
+								);
+						else
+							log("%s suicided.%s",
+								victim.ttyname,
+								isCrit ? " (crit)".ptr : "".ptr,
+								);
 					}
 					else
 					{
 						// weapon-assisted
-						log("%s suicided.%s (%s)",
-							victim.ttyname,
-							isCrit ? " (crit)".ptr : "".ptr,
-							weapon.ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s suicided.%s (%s)",
+								htmlPlayerName(victim).ptr,
+								isCrit ? " (crit)".ptr : "".ptr,
+								weapon.ptr,
+								);
+						else
+							log("%s suicided.%s (%s)",
+								victim.ttyname,
+								isCrit ? " (crit)".ptr : "".ptr,
+								weapon.ptr,
+								);
 					}
 
 					break;
@@ -3184,11 +3351,19 @@ private:
 				 */
 				if (!killer)
 				{
-					log("%s died.%s (%s)",
-						victim.ttyname,
-						isCrit ? " (crit)".ptr : "".ptr,
-						weapon.ptr,
-						);
+					if (g_htmlOut)
+						htmlSimpleRow(
+							"%s died.%s (%s)",
+							htmlPlayerName(victim).ptr,
+							isCrit ? " (crit)".ptr : "".ptr,
+							weapon.ptr,
+							);
+					else
+						log("%s died.%s (%s)",
+							victim.ttyname,
+							isCrit ? " (crit)".ptr : "".ptr,
+							weapon.ptr,
+							);
 
 					switch (weapon)
 					{
@@ -3232,12 +3407,21 @@ private:
 				if (weapon != "player" && !isFriendlyFireEnabled)
 					Player2.impliedOppositeTeams(killer, victim);
 
-				log("%s killed %s with %s.%s",
-					killer.ttyname,
-					victim.ttyname,
-					weapon.ptr.teamcolorize,
-					isCrit ? " (crit)".ptr : "".ptr,
-					);
+				if (g_htmlOut)
+					htmlSimpleRow(
+						"%s killed %s with <span class=\"weaponname\">%s</span>.%s",
+						htmlPlayerName(killer).ptr,
+						htmlPlayerName(victim).ptr,
+						htmlspecialchars(weapon).ptr,
+						isCrit ? " (crit)".ptr : "".ptr,
+						);
+				else
+					log("%s killed %s with %s.%s",
+						killer.ttyname,
+						victim.ttyname,
+						weapon.ptr.teamcolorize,
+						isCrit ? " (crit)".ptr : "".ptr,
+						);
 
 				break;
 			}
@@ -3269,9 +3453,19 @@ private:
 					}
 				}
 
-				log("%s left the game (%.*s)",
-					(pl) ? pl.ttyname : name.ptr.teamcolorize,
-					cast(int)shortreason.length, shortreason.ptr);
+				if (g_htmlOut)
+				{
+					// idle kicks have a dedicated message
+					if (reason != "#TF_Idle_kicked")
+						htmlSimpleRow("%s left the game (%s)",
+							htmlPlayerName(pl).ptr,
+							htmlUserText(shortreason).ptr,
+							);
+				}
+				else
+					log("%s left the game (%.*s)",
+						(pl) ? pl.ttyname : name.ptr.teamcolorize,
+						cast(int)shortreason.length, shortreason.ptr);
 
 				/+
 				 . 3118  Client Disconnect
@@ -3450,10 +3644,20 @@ private:
 
 				assert(teamname);
 
+				string middle;
 				if (autoteam)
-					log("%s was automatically assigned to team %s", pl.ttyname, teamname.ptr);
+					middle = "was automatically assigned to team";
 				else
-					log("%s joined team %s", pl.ttyname, teamname.ptr);
+					middle = "joined team";
+
+				if (g_htmlOut)
+					htmlSimpleRow("%s %s %s",
+						htmlPlayerName(pl).ptr,
+						middle.ptr,
+						teamname.ptr,
+						);
+				else
+					log("%s %s %s", pl.ttyname, middle.ptr, teamname.ptr);
 
 				/*
 				 * valve servers auto-assign you a team without showing the
@@ -3488,7 +3692,13 @@ private:
 				if (team) // skial
 					pl.impliedTeam(team);
 
-				log("Vote: %s voted %s", pl.ttyname, Vote.get(voteidx).optionName(vote_option));
+				if (g_htmlOut)
+					htmlSimpleRow("<strong>Vote:</strong> %s voted %s",
+						htmlPlayerName(pl).ptr,
+						htmlspecialchars(Vote.get(voteidx).optionName(vote_option).fromStringz).ptr,
+						);
+				else
+					log("Vote: %s voted %s", pl.ttyname, Vote.get(voteidx).optionName(vote_option));
 
 				break;
 			}
@@ -3784,6 +3994,31 @@ private:
 		handleGameEventList(cast(ubyte[])mm[]);
 		return true;
 	}
+
+	void htmlBeginRow()
+	{
+		assert(g_htmlOut);
+		fprintf(g_htmlOut, "<tr><td>%.3f</td><td>", serverTickNo * 0.015);
+	}
+
+	extern(C) pragma(printf)
+	void htmlSimpleRow(const(char)* fmt, ...)
+	{
+		import core.stdc.stdarg;
+		va_list ap;
+		htmlBeginRow();
+		va_start(ap, fmt);
+		vfprintf(g_htmlOut, fmt, ap);
+		va_end(ap);
+		htmlEndRow();
+	}
+
+	void htmlEndRow()
+	{
+		assert(g_htmlOut);
+		fprintf(g_htmlOut, "</td></tr>\n");
+		fflush(g_htmlOut);
+	}
 }
 
 enum : uint
@@ -4056,4 +4291,184 @@ ubyte[16] getMapChecksum(string path)
 	}
 
 	return md5.finish();
+}
+
+// todo: convert unicode to entities
+const(char)[] htmlspecialchars(const(char)[] s)
+{
+	size_t pos = -1;
+loop:
+	foreach (i, c; s)
+	{
+		switch (c)
+		{
+		case '&':
+		case '"':
+		case '<':
+		case '>':
+			pos = i;
+			break loop;
+		case '\0':
+			assert(0); // test
+			break;
+		default:
+			break;
+		}
+	}
+	if (pos == -1)
+		return s;
+	auto ap = appender!string;
+	ap.reserve(s.length + 3 + 1); // "gt;" + "\0"
+	ap ~= s[0..pos];
+	foreach (c; s[pos..$])
+	{
+		switch (c)
+		{
+		case '\0':
+			assert(0); // test
+			break;
+		case '&':
+			ap ~= "&amp;";
+			break;
+		case '"':
+			ap ~= "&quot;";
+			break;
+		case '<':
+			ap ~= "&lt;";
+			break;
+		case '>':
+			ap ~= "&gt;";
+			break;
+		default:
+			ap ~= c;
+			break;
+		}
+	}
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+unittest
+{
+	assert(htmlspecialchars("hi") == "hi");
+	assert(htmlspecialchars("rock & roll") == "rock &amp; roll");
+	assert(htmlspecialchars("rock && roll") == "rock &amp;&amp; roll");
+	assert(htmlspecialchars(" & \" < > ") == " &amp; &quot; &lt; &gt; ");
+	assert(htmlspecialchars(">") == "&gt;");
+}
+
+string playerToTeamName(Player2* pl)
+{
+	if (pl)
+	{
+		if (pl.team == 2)
+			return "red";
+		if (pl.team == 3)
+			return "blu";
+	}
+	return "unassigned";
+}
+
+/**
+ * used by:
+ * - SayText2 user message
+ * - TextMsg user message
+ */
+const(char)[] htmlSourceModColoredText(const(char)[] s)
+{
+	size_t skipuntil;
+	int inColor;
+	auto ap = appender!string;
+
+	foreach (i, c; s)
+	{
+		if (c == 1 || c == 3 || c == 4)
+		{
+			// not sure what 3 is
+			// it appears in player chat messages but not system messages
+			// 4 appears in rtd messages before the number of seconds
+			if (inColor)
+			{
+				ap ~= "</span>";
+				inColor--;
+			}
+			continue;
+		}
+
+		if (c == 7)
+		{
+			const(char)[] color = s[i+1..i+7]; // RRGGBB
+			uint r, g, b;
+			sscanf(color.ptr, "%02x%02x%02x", &r, &g, &b);
+
+			char[16] buf;
+			snprintf(buf.ptr, buf.length, "%02x%02x%02x", r, g, b);
+			ap ~= "<span style=\"color: #";
+			ap ~= buf.fromStringz;
+			ap ~= "\">";
+			skipuntil = i + 7;
+			inColor++;
+			continue;
+		}
+
+		if (c < ' ' && c != '\n') assert(0, "unknown control character");
+
+		if (i >= skipuntil)
+			switch (c)
+			{
+			case '&':
+				ap ~= "&amp;";
+				break;
+			case '"':
+				ap ~= "&quot;";
+				break;
+			case '<':
+				ap ~= "&lt;";
+				break;
+			case '>':
+				ap ~= "&gt;";
+				break;
+			default:
+				ap ~= c;
+				break;
+			}
+	}
+
+	while (inColor --> 0) ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+const(char)[] htmlPlayerName(Player2* pl)
+{
+	auto ap = appender!string;
+
+	char[32] buf = void;
+	snprintf(buf.ptr, buf.length, "%u", pl.info.friendsID);
+	ap ~= "<span class=\"playername\" data-accountid=\"";
+	ap ~= buf.fromStringz;
+	ap ~= "\" data-mark=\"";
+	if (auto mark = pl.info.guid.fromStringz in g_marks)
+		ap ~= htmlspecialchars((*mark).name);
+	ap ~= "\" data-team=\"";
+	ap ~= playerToTeamName(pl);
+	ap ~= "\" dir=\"auto\" lang>";
+	ap ~= htmlspecialchars(pl.info.name.fromStringz);
+	ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+const(char)[] htmlUserText(const(char)[] s)
+{
+	auto ap = appender!string;
+
+	ap ~= "<span class=\"usertext\" dir=\"auto\" lang>";
+	ap ~= htmlspecialchars(s);
+	ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
 }

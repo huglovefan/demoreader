@@ -5,6 +5,8 @@
  */
 module demoreader.globals;
 
+import core.stdc.stdio : FILE;
+
 __gshared
 {
 	bool g_useColor;
@@ -27,4 +29,5 @@ __gshared
 	ulong g_sizeStatTotalSize;
 
 	bool g_skipPacketEntities;
+	FILE* g_htmlOut;
 }

@@ -4,6 +4,7 @@ import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import core.sys.posix.signal;
+import core.sys.posix.stdio;
 import core.sys.posix.unistd;
 import core.time;
 import std.algorithm;
@@ -169,6 +170,10 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 
 				exit(rv);
 			}
+			case "-html":
+				g_htmlOut = fdopen(dup(1), "w");
+				dup2(2, 1);
+				break;
 			case "-json":
 				g_jsonFlag = true;
 				break;
@@ -210,8 +215,19 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 				break;
 			default:
 			{
+				// undocumented, add a search dir for programmatic use
+				if (args[1].startsWith("-sd="))
+				{
+					string sd = args[1]["-sd=".length..$];
+					if (!sd.exists)
+					{
+						fprintf(stderr, "sd '%.*s' does not exist\n", cast(int)sd.length, sd.ptr);
+						exit(1);
+					}
+					drm.searchDirs ~= sd;
+				}
 				// looks like an option?
-				if (args[1].length && (args[1][0] == '-' || args[1][0] == '+'))
+				else if (args[1].length && (args[1][0] == '-' || args[1][0] == '+'))
 				{
 					// range thing?
 					if (args[1].length >= 2 && args[1][1] >= '0' && args[1][1] <= '9')
