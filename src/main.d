@@ -790,15 +790,19 @@ unittest
 	foreach (i; 0..3)
 		assert(imported!"std.random".randomShuffle(someDemos).array.sort!demoNameCompareFn.array == someDemos);
 }
-static assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "2022-07-24_16-46-31_1.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_2.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_10.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == true); // this needs the numeric comparison to work right
-static assert(demoNameCompareFn("2022-07-24_16-46-31_10.dem", "2022-07-24_16-46-31_2.dem") == false); // this needs the numeric comparison to work right
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_xyz.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-08-24_16-46-31.dem",   "2022-07-24_16-46-31_1.dem") == false); // remember to check the date portion
-static assert(demoNameCompareFn("2022-08-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == false); // remember to check the date portion!!
-static assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "202.dem") == false); // no bounds error
+
+unittest
+{
+	assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "2022-07-24_16-46-31_1.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_2.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_10.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == true); // this needs the numeric comparison to work right
+	assert(demoNameCompareFn("2022-07-24_16-46-31_10.dem", "2022-07-24_16-46-31_2.dem") == false); // this needs the numeric comparison to work right
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_xyz.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-08-24_16-46-31.dem",   "2022-07-24_16-46-31_1.dem") == false); // remember to check the date portion
+	assert(demoNameCompareFn("2022-08-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == false); // remember to check the date portion!!
+	assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "202.dem") == false); // no bounds error
+}
 
 /// pattern for dirEntries() to match automatically named demos
 enum autoNamedDemoPattern = "20??-??-??_*.dem";
@@ -816,8 +820,12 @@ bool isAutoNamedDemo(string path)
 		base[10] == '_' &&
 		base.extension == ".dem";
 }
-static assert(isAutoNamedDemo("2022-07-24_16-46-31.dem"));
-static assert(isAutoNamedDemo("2022-07-24_16-46-31_stuff.dem"));
+
+unittest
+{
+	assert(isAutoNamedDemo("2022-07-24_16-46-31.dem"));
+	assert(isAutoNamedDemo("2022-07-24_16-46-31_stuff.dem"));
+}
 
 // -----------------------------------------------------------------------------
 

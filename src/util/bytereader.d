@@ -192,13 +192,16 @@ struct ByteReader
 	}
 }
 
-static assert( __traits(compiles, ByteReader.init.read!(int)()));
-static assert( __traits(compiles, ByteReader.init.read!(int[1])()));
-static assert(!__traits(compiles, ByteReader.init.read!(int*)())); // pointer
-static assert(!__traits(compiles, ByteReader.init.read!(int*[1])())); // pointer
+unittest
+{
+	assert( __traits(compiles, ByteReader.init.read!(int)()));
+	assert( __traits(compiles, ByteReader.init.read!(int[1])()));
+	assert(!__traits(compiles, ByteReader.init.read!(int*)())); // pointer
+	assert(!__traits(compiles, ByteReader.init.read!(int*[1])())); // pointer
 
-static assert( __traits(compiles, ByteReader.init.read!(int[])(1)));
-static assert(!__traits(compiles, ByteReader.init.read!(int[1])(1))); // length with static array
+	assert( __traits(compiles, ByteReader.init.read!(int[])(1)));
+	assert(!__traits(compiles, ByteReader.init.read!(int[1])(1))); // length with static array
+}
 
 // -----------------------------------------------------------------------------
 

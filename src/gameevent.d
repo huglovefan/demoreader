@@ -72,15 +72,15 @@ struct GameEvent
 					pv.as.Float = buf.ReadBitFloat();
 					break;
 				case Param.Type.Long:
-					static assert(typeof(buf.ReadLong()).min < 0); // signed
+					debug static assert(typeof(buf.ReadLong()).min < 0); // signed
 					pv.as.Signed = buf.ReadLong();
 					break;
 				case Param.Type.Short:
-					static assert(typeof(buf.ReadShort()).min < 0); // signed
+					debug static assert(typeof(buf.ReadShort()).min < 0); // signed
 					pv.as.Signed = buf.ReadShort();
 					break;
 				case Param.Type.Byte:
-					static assert(typeof(buf.ReadByte()).min == 0); // unsigned
+					debug static assert(typeof(buf.ReadByte()).min == 0); // unsigned
 					pv.as.Unsigned = buf.ReadByte();
 					break;
 				case Param.Type.Bool:

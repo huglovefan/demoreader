@@ -23,7 +23,7 @@ enum StringTableSource
 	svcUpdateStringTable, /// svc_updatestringtable
 	none = -1,
 }
-static assert(StringTableSource.svcCreateStringTable == 0);
+debug static assert(StringTableSource.svcCreateStringTable == 0);
 
 Player.UserInfoSource toUserInfoSource(StringTableSource updateSource)
 {

@@ -61,7 +61,7 @@ struct demoheader_t
 	{
 		return playback_time is 0.0f && !playback_ticks && !playback_frames;
 	}
-	static assert(demoheader_t.init.isLive);
+	debug static assert(demoheader_t.init.isLive);
 
 	void check()
 	{

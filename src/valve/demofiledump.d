@@ -332,7 +332,7 @@ struct player_info_t
 		printf("\b\b)"); // erase last ", " by terminal magic
 	}
 }
-static assert(player_info_t.sizeof == 132);
+debug static assert(player_info_t.sizeof == 132);
 
 private:
 
@@ -347,8 +347,12 @@ bool hasHiddenData(char[] s)
 	}
 	assert(0);
 }
-static assert(!hasHiddenData([1, 2, 0]));
-static assert( hasHiddenData([1, 2, 0, 1, 0]));
+
+unittest
+{
+	assert(!hasHiddenData([1, 2, 0]));
+	assert( hasHiddenData([1, 2, 0, 1, 0]));
+}
 
 bool isAllZeros(C)(C[] data)
 if (C.sizeof == 1)
@@ -386,6 +390,10 @@ bool hasEmbeddedNull(char[] s)
 	}
 	return seenCharAfterNul != 0;
 }
-static assert(!hasEmbeddedNull([0]));
-static assert(!hasEmbeddedNull([1, 0]));
-static assert( hasEmbeddedNull([1, 0, 1, 0]));
+
+unittest
+{
+	assert(!hasEmbeddedNull([0]));
+	assert(!hasEmbeddedNull([1, 0]));
+	assert( hasEmbeddedNull([1, 0, 1, 0]));
+}

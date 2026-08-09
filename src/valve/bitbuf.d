@@ -519,13 +519,16 @@ T BitByte(T)(T v)
 	return v / 8 + !!(v % 8);
 }
 
-static assert(BitByte(0) == 0);
-static assert(BitByte(1) == 1);
-static assert(BitByte(7) == 1);
-static assert(BitByte(8) == 1);
-static assert(BitByte(9) == 2);
-static assert(BitByte(uint.max) == 536870912);
-static assert(BitByte(ulong.max) == 2305843009213693952);
+unittest
+{
+	assert(BitByte(0) == 0);
+	assert(BitByte(1) == 1);
+	assert(BitByte(7) == 1);
+	assert(BitByte(8) == 1);
+	assert(BitByte(9) == 2);
+	assert(BitByte(uint.max) == 536870912);
+	assert(BitByte(ulong.max) == 2305843009213693952);
+}
 
 // -----------------------------------------------------------------------------
 
