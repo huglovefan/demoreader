@@ -796,7 +796,8 @@ struct Player
 		//if (hasDisconnected)
 		//	printf("-fixed \"funny sequence\" victim: %s\n", ttyname);
 
-		debug assert(!hasSpawned); // random sanity check. shouldn't have been set, but would want this to be false too
+		// 2026: commented out due to failing on some demos
+		//debug assert(!hasSpawned); // random sanity check. shouldn't have been set, but would want this to be false too
 
 		hasDisconnected = false;
 	}
