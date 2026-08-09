@@ -562,84 +562,6 @@ struct Player
 		}
 	}
 
-	unittest
-	{
-		Players players;
-		Player pl1;
-		Player pl2;
-		bool thrown(int team1, int team2)
-		{
-			pl1.team = team1;
-			pl2.team = team2;
-			try
-			{
-				players.impliedSameTeam(&pl1, &pl2);
-				return false;
-			}
-			catch (Throwable)
-				return true;
-		}
-		bool fixup(int newteam1, int newteam2)
-		{
-			return pl1.team == newteam1 && pl2.team == newteam2;
-		}
-		assert(!thrown(0, 0)); assert(fixup(0, 0));
-		assert(!thrown(0, 1)); assert(fixup(1, 1));
-		assert(!thrown(0, 2)); assert(fixup(2, 2));
-		assert(!thrown(0, 3)); assert(fixup(3, 3));
-		assert(!thrown(1, 0)); assert(fixup(1, 1));
-		assert(!thrown(1, 1)); assert(fixup(1, 1));
-		assert( thrown(1, 2));
-		assert( thrown(1, 3));
-		assert(!thrown(2, 0)); assert(fixup(2, 2));
-		assert( thrown(2, 1));
-		assert(!thrown(2, 2)); assert(fixup(2, 2));
-		assert( thrown(2, 3));
-		assert(!thrown(3, 0)); assert(fixup(3, 3));
-		assert( thrown(3, 1));
-		assert( thrown(3, 2));
-		assert(!thrown(3, 3)); assert(fixup(3, 3));
-	}
-
-	unittest
-	{
-		Players players;
-		Player pl1;
-		Player pl2;
-		bool thrown(int team1, int team2)
-		{
-			pl1.team = team1;
-			pl2.team = team2;
-			try
-			{
-				players.impliedOppositeTeams(&pl1, &pl2);
-				return false;
-			}
-			catch (Throwable)
-				return true;
-		}
-		bool fixup(int newteam1, int newteam2)
-		{
-			return pl1.team == newteam1 && pl2.team == newteam2;
-		}
-		assert(!thrown(0, 0)); assert(fixup(0, 0));
-		assert( thrown(0, 1));
-		assert(!thrown(0, 2)); assert(fixup(3, 2));
-		assert(!thrown(0, 3)); assert(fixup(2, 3));
-		assert( thrown(1, 0));
-		assert( thrown(1, 1));
-		assert( thrown(1, 2));
-		assert( thrown(1, 3));
-		assert(!thrown(2, 0)); assert(fixup(2, 3));
-		assert( thrown(2, 1));
-		assert( thrown(2, 2));
-		assert(!thrown(2, 3)); assert(fixup(2, 3));
-		assert(!thrown(3, 0)); assert(fixup(3, 2));
-		assert( thrown(3, 1));
-		assert(!thrown(3, 2)); assert(fixup(3, 2));
-		assert( thrown(3, 3));
-	}
-
 	/// colored and decorated name for printing
 	const(char)* ttyname()
 	{
@@ -1006,4 +928,84 @@ struct TempRotator(T, size_t count)
 		i = (i + 1) % count;
 		return *p;
 	}
+}
+
+// test impliedSameTeam
+unittest
+{
+	Players players;
+	Player pl1;
+	Player pl2;
+	bool thrown(int team1, int team2)
+	{
+		pl1.team = team1;
+		pl2.team = team2;
+		try
+		{
+			players.impliedSameTeam(&pl1, &pl2);
+			return false;
+		}
+		catch (Throwable)
+			return true;
+	}
+	bool fixup(int newteam1, int newteam2)
+	{
+		return pl1.team == newteam1 && pl2.team == newteam2;
+	}
+	assert(!thrown(0, 0)); assert(fixup(0, 0));
+	assert(!thrown(0, 1)); assert(fixup(1, 1));
+	assert(!thrown(0, 2)); assert(fixup(2, 2));
+	assert(!thrown(0, 3)); assert(fixup(3, 3));
+	assert(!thrown(1, 0)); assert(fixup(1, 1));
+	assert(!thrown(1, 1)); assert(fixup(1, 1));
+	assert( thrown(1, 2));
+	assert( thrown(1, 3));
+	assert(!thrown(2, 0)); assert(fixup(2, 2));
+	assert( thrown(2, 1));
+	assert(!thrown(2, 2)); assert(fixup(2, 2));
+	assert( thrown(2, 3));
+	assert(!thrown(3, 0)); assert(fixup(3, 3));
+	assert( thrown(3, 1));
+	assert( thrown(3, 2));
+	assert(!thrown(3, 3)); assert(fixup(3, 3));
+}
+
+// test impliedOppositeTeams
+unittest
+{
+	Players players;
+	Player pl1;
+	Player pl2;
+	bool thrown(int team1, int team2)
+	{
+		pl1.team = team1;
+		pl2.team = team2;
+		try
+		{
+			players.impliedOppositeTeams(&pl1, &pl2);
+			return false;
+		}
+		catch (Throwable)
+			return true;
+	}
+	bool fixup(int newteam1, int newteam2)
+	{
+		return pl1.team == newteam1 && pl2.team == newteam2;
+	}
+	assert(!thrown(0, 0)); assert(fixup(0, 0));
+	assert( thrown(0, 1));
+	assert(!thrown(0, 2)); assert(fixup(3, 2));
+	assert(!thrown(0, 3)); assert(fixup(2, 3));
+	assert( thrown(1, 0));
+	assert( thrown(1, 1));
+	assert( thrown(1, 2));
+	assert( thrown(1, 3));
+	assert(!thrown(2, 0)); assert(fixup(2, 3));
+	assert( thrown(2, 1));
+	assert( thrown(2, 2));
+	assert(!thrown(2, 3)); assert(fixup(2, 3));
+	assert(!thrown(3, 0)); assert(fixup(3, 2));
+	assert( thrown(3, 1));
+	assert(!thrown(3, 2)); assert(fixup(3, 2));
+	assert( thrown(3, 3));
 }
