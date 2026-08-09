@@ -1603,7 +1603,7 @@ private:
 					if (TRACE1)
 					{
 						printf("   entity=%u\n", entindex);
-						printf("   class=%u (%s)\n", classid, demoreader.entitystuff.gameState.classes[classid].name.ptr);
+						printf("   class=%u (%s)\n", classid, demoreader.entitystuff.gameState.classes.length ? demoreader.entitystuff.gameState.classes[classid].name.ptr : "?".ptr);
 						printf("   data=");
 						sbuf.PrintBytes();
 					}
