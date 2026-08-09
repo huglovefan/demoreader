@@ -42,15 +42,12 @@ enum ubyte INVALID_PLAYER_SLOT = ubyte.max;
 
 final class DemoReader
 {
-	private
-	{
-		FileWatch    fw;
-		ByteReader   br;
-		Votes        votes;
-		StringTables stringTables;
-		Players      players;
-		GameEvents   gameEvents;
-	}
+	private FileWatch    fw;
+	private ByteReader   br;
+	private Votes        votes;
+	private StringTables stringTables;
+	private Players      players;
+	private GameEvents   gameEvents;
 
 	string       filePath;    /// path to demo file
 	demoheader_t header;      /// demo file header
@@ -104,19 +101,16 @@ final class DemoReader
 		return header.mapname.fromStringz;
 	}
 
-	static
-	{
-		private DemoReader instance;
+	static private DemoReader instance;
 
-		DemoReader get()
-		{
-			debug assert(instance);
-			return instance;
-		}
-		private void setInstance(DemoReader dr)
-		{
-			instance = dr;
-		}
+	static DemoReader get()
+	{
+		debug assert(instance);
+		return instance;
+	}
+	static private void setInstance(DemoReader dr)
+	{
+		instance = dr;
 	}
 
 	this(string filename)
@@ -3981,7 +3975,8 @@ private:
 		fprintf(g_htmlOut, "<tr><td>%.3f</td><td>", serverTickNo * 0.015);
 	}
 
-	extern(C) pragma(printf)
+	pragma(printf)
+	extern(C)
 	void htmlSimpleRow(const(char)* fmt, ...)
 	{
 		va_list ap;

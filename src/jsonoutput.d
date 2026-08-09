@@ -10,48 +10,45 @@ import std.json;
 import std.math.rounding;
 import std.stdio;
 
-private
-{
-	alias nothing_t = void[0];
-	enum nothing = nothing_t.init;
-}
+private alias nothing_t = void[0];
+private enum nothing = nothing_t.init;
 
 struct JsonOutput
 {
 static:
-	private
-	{
-		bool              active;
 
-		// .author
-		string            ownSteamId;
-		string            ownName;
+private:
+	bool              active;
 
-		// .demo
-		double            duration;
-		bool              isIncomplete; /// demo file was never finalized (game crashed while recording)
+	// .author
+	string            ownSteamId;
+	string            ownName;
 
-		// .engine
-		uint              buildNumber;  /// game build number
-		uint              demoProtocol;
-		uint              networkProtocol;
+	// .demo
+	double            duration;
+	bool              isIncomplete; /// demo file was never finalized (game crashed while recording)
 
-		// .server
-		string            serverIp;        /// ip + port string
-		bool              serverDedicated; /// dedicated vs. listen server
-		string            serverName;      /// server name when recording started
-		uint              serverNumber;    /// number of times a map has been loaded without restarting the server
-		string            serverOs;        /// linux or windows
+	// .engine
+	uint              buildNumber;  /// game build number
+	uint              demoProtocol;
+	uint              networkProtocol;
 
-		// .game, i think
-		string            mapName;      /// filename of map without extension
+	// .server
+	string            serverIp;        /// ip + port string
+	bool              serverDedicated; /// dedicated vs. listen server
+	string            serverName;      /// server name when recording started
+	uint              serverNumber;    /// number of times a map has been loaded without restarting the server
+	string            serverOs;        /// linux or windows
 
-		// .?
-		nothing_t[string] seenSteamIds; /// every steamid seen during the game
+	// .game, i think
+	string            mapName;      /// filename of map without extension
 
-		bool              ev_badPitch;
-	}
+	// .?
+	nothing_t[string] seenSteamIds; /// every steamid seen during the game
 
+	bool              ev_badPitch;
+
+public:
 	bool isActive() { return active; }
 
 	void resetAndSetActive(bool b)

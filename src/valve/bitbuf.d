@@ -8,15 +8,12 @@ import demoreader.valve.demofile : Vector;
 
 final class bf_read
 {
-	private
-	{
-		// The current buffer.
-		const(ubyte)* m_pData;
-		uint          m_nDataBits;
+	// The current buffer.
+	private const(ubyte)* m_pData;
+	private uint          m_nDataBits;
 
-		// Where we are in the buffer.
-		uint          m_iCurBit;
-	}
+	// Where we are in the buffer.
+	private uint          m_iCurBit;
 
 	this(const(void)[] data, uint nBits = -1)
 	{

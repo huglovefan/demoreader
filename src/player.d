@@ -472,10 +472,7 @@ struct Player
 	int badPitchTick;
 	int badPitchPrintCount;
 
-	private
-	{
-		UserInfoSource userInfoSource; /// where .info came from
-	}
+	private UserInfoSource userInfoSource; /// where .info came from
 
 	this(int slotIndex_)
 	{
