@@ -519,7 +519,7 @@ private:
 			//     client. time warps are what we want to detect and skip here.
 			if (diff <= maxJump || (!signonState && !demoTickNo) || !isLocalListenServer)
 			{
-				if (TRACE1)
+				if (0)
 					printf("* assign tick %u -> %u (diff %u, signonState %u)\n", demoTickNo, tick, diff, signonState);
 				demoTickNo = tick;
 			}
