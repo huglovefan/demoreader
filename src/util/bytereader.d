@@ -212,7 +212,12 @@ enum IsStaticArray(T) = __traits(isStaticArray, T);
 enum IsStruct(T)      = is(T == struct);
 enum IsUnion(T)       = is(T == union);
 enum IsSlice(T)       = is(T == X[], X);
-enum HasPointers(T)   = __traits(getPointerBitmap, T)[1] != 0;
+enum HasPointers(T) = {
+	foreach (s; __traits(getPointerBitmap, T)[1..$])
+		if (s)
+			return true;
+	return false;
+}();
 alias ElementType(T : X[], X) = X;
 
 // safe to read if:
@@ -225,4 +230,12 @@ enum IsSafeToRead(T) =
 void boundsError()
 {
 	throw new ByteReaderRangeException("");
+}
+
+unittest
+{
+	struct S { char[1000] a; int x; }
+	struct Sp { char[1000] a; int* x; }
+	assert(!HasPointers!S);
+	assert(HasPointers!Sp);
 }
