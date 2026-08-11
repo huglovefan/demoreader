@@ -108,7 +108,9 @@ struct player_info_t
 			}
 
 		}
-		assert(!guid.hasHiddenData);
+		if (guid.hasHiddenData)
+			// tf2-d1.dem (2013)
+			assert(guid == "BOT\0 CBaseClient::SendServerInfo\0");
 
 		// 4. padding1
 		assert(padding1.isAllZeros);
