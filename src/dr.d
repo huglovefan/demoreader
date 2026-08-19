@@ -4140,12 +4140,15 @@ enum UserMessage : ubyte
 	EOTLDuckEvent = 74,
 	PlayerPickupWeapon = 75,
 	QuestObjectiveCompleted = 76,
-	SPHapWeapEvent = 77,
-	HapDmg = 78,
-	HapPunch = 79,
-	HapSetDrag = 80,
-	HapSetConst = 81,
-	HapMeleeContact = 82,
+	SdkRequestEquipment = 77,
+	BuiltObject = 78,
+	SPHapWeapEvent = 79,
+	HapDmg = 80,
+	HapPunch = 81,
+	HapSetDrag = 82,
+	HapSetConst = 83,
+	HapMeleeContact = 84,
+	SavedConvar = 85,
 }
 
 static immutable string[UserMessage] userMessageToString;
