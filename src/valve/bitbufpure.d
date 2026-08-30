@@ -38,24 +38,26 @@ if (__traits(isUnsigned, U))
 	return cast(S)value;
 }
 
-static assert(toSigned(ubyte(1), 8) is byte(1));
-static assert(toSigned(ubyte(0xff), 8) is byte(-1));
+unittest
+{
+	assert(toSigned(ubyte(1), 8) is byte(1));
+	assert(toSigned(ubyte(0xff), 8) is byte(-1));
 
-static assert(toSigned(cast(ubyte )-42,  8) is byte (-42));
-static assert(toSigned(cast(ushort)-42, 16) is short(-42));
-static assert(toSigned(cast(uint  )-42, 32) is int  (-42));
-static assert(toSigned(cast(ulong )-42, 64) is long (-42));
+	assert(toSigned(cast(ubyte )-42,  8) is byte (-42));
+	assert(toSigned(cast(ushort)-42, 16) is short(-42));
+	assert(toSigned(cast(uint  )-42, 32) is int  (-42));
+	assert(toSigned(cast(ulong )-42, 64) is long (-42));
 
-static assert(toSigned(uint(0b11), 2) is -1);
-static assert(toSigned(uint(0b10), 2) is -2);
-static assert(toSigned(uint(0b1111), 4) is -1);
-static assert(toSigned(uint(0b1111_1111), 8) is -1);
+	assert(toSigned(uint(0b11), 2) is -1);
+	assert(toSigned(uint(0b10), 2) is -2);
+	assert(toSigned(uint(0b1111), 4) is -1);
+	assert(toSigned(uint(0b1111_1111), 8) is -1);
+}
 
 // -----------------------------------------------------------------------------
 
 // note: might read past the end if T is bigger than the remaining data
 
-pragma(inline, true)
 T PureReadOneBit(T)(const(T)* data, uint bitNum)
 if (__traits(isUnsigned, T))
 {
@@ -163,22 +165,25 @@ if (__traits(isUnsigned, T))
 	}();
 }
 
-static assert(ExtraMasks!ubyte[0] == ubyte.min);
-static assert(ExtraMasks!ubyte[1] == 1);
-static assert(ExtraMasks!ubyte[7] == ubyte.max>>1);
-static assert(ExtraMasks!ubyte[8] == ubyte.max);
+unittest
+{
+	assert(ExtraMasks!ubyte[0] == ubyte.min);
+	assert(ExtraMasks!ubyte[1] == 1);
+	assert(ExtraMasks!ubyte[7] == ubyte.max>>1);
+	assert(ExtraMasks!ubyte[8] == ubyte.max);
 
-static assert(ExtraMasks!ushort[ 0] == ushort.min);
-static assert(ExtraMasks!ushort[ 1] == 1);
-static assert(ExtraMasks!ushort[15] == ushort.max>>1);
-static assert(ExtraMasks!ushort[16] == ushort.max);
+	assert(ExtraMasks!ushort[ 0] == ushort.min);
+	assert(ExtraMasks!ushort[ 1] == 1);
+	assert(ExtraMasks!ushort[15] == ushort.max>>1);
+	assert(ExtraMasks!ushort[16] == ushort.max);
 
-static assert(ExtraMasks!uint[ 0] == uint.min);
-static assert(ExtraMasks!uint[ 1] == 1);
-static assert(ExtraMasks!uint[31] == uint.max>>1);
-static assert(ExtraMasks!uint[32] == uint.max);
+	assert(ExtraMasks!uint[ 0] == uint.min);
+	assert(ExtraMasks!uint[ 1] == 1);
+	assert(ExtraMasks!uint[31] == uint.max>>1);
+	assert(ExtraMasks!uint[32] == uint.max);
 
-static assert(ExtraMasks!ulong[ 0] == ulong.min);
-static assert(ExtraMasks!ulong[ 1] == 1);
-static assert(ExtraMasks!ulong[63] == ulong.max>>1);
-static assert(ExtraMasks!ulong[64] == ulong.max);
+	assert(ExtraMasks!ulong[ 0] == ulong.min);
+	assert(ExtraMasks!ulong[ 1] == 1);
+	assert(ExtraMasks!ulong[63] == ulong.max>>1);
+	assert(ExtraMasks!ulong[64] == ulong.max);
+}

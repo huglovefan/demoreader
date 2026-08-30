@@ -4,8 +4,8 @@
 module demoreader.util.bytereader;
 
 import core.sys.posix.fcntl;
-import core.sys.linux.sys.mman;
 import core.sys.posix.unistd;
+import core.sys.linux.sys.mman;
 import std.array : uninitializedArray;
 import std.exception;
 import std.file;
@@ -36,7 +36,6 @@ struct ByteReader
 		return totalSize-data.length;
 	}
 
-	pragma(inline, true)
 	size_t remaining()
 	{
 		return data.length;
@@ -193,13 +192,16 @@ struct ByteReader
 	}
 }
 
-static assert( __traits(compiles, ByteReader.init.read!(int)()));
-static assert( __traits(compiles, ByteReader.init.read!(int[1])()));
-static assert(!__traits(compiles, ByteReader.init.read!(int*)())); // pointer
-static assert(!__traits(compiles, ByteReader.init.read!(int*[1])())); // pointer
+unittest
+{
+	assert( __traits(compiles, ByteReader.init.read!(int)()));
+	assert( __traits(compiles, ByteReader.init.read!(int[1])()));
+	assert(!__traits(compiles, ByteReader.init.read!(int*)())); // pointer
+	assert(!__traits(compiles, ByteReader.init.read!(int*[1])())); // pointer
 
-static assert( __traits(compiles, ByteReader.init.read!(int[])(1)));
-static assert(!__traits(compiles, ByteReader.init.read!(int[1])(1))); // length with static array
+	assert( __traits(compiles, ByteReader.init.read!(int[])(1)));
+	assert(!__traits(compiles, ByteReader.init.read!(int[1])(1))); // length with static array
+}
 
 // -----------------------------------------------------------------------------
 
@@ -210,7 +212,12 @@ enum IsStaticArray(T) = __traits(isStaticArray, T);
 enum IsStruct(T)      = is(T == struct);
 enum IsUnion(T)       = is(T == union);
 enum IsSlice(T)       = is(T == X[], X);
-enum HasPointers(T)   = __traits(getPointerBitmap, T)[1] != 0;
+enum HasPointers(T) = {
+	foreach (s; __traits(getPointerBitmap, T)[1..$])
+		if (s)
+			return true;
+	return false;
+}();
 alias ElementType(T : X[], X) = X;
 
 // safe to read if:
@@ -223,4 +230,12 @@ enum IsSafeToRead(T) =
 void boundsError()
 {
 	throw new ByteReaderRangeException("");
+}
+
+unittest
+{
+	struct S { char[1000] a; int x; }
+	struct Sp { char[1000] a; int* x; }
+	assert(!HasPointers!S);
+	assert(HasPointers!Sp);
 }

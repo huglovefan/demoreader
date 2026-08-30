@@ -6,9 +6,9 @@ module demoreader.util.filewatch;
 import core.stdc.errno;
 import core.stdc.limits : NAME_MAX;
 import core.stdc.stdio;
+import core.sys.linux.sys.inotify;
 import core.sys.posix.fcntl;
 import core.sys.posix.unistd;
-import core.sys.linux.sys.inotify;
 import core.thread.osthread;
 import core.time;
 import std.exception;
@@ -104,7 +104,6 @@ struct FileWatch
 	 * magically wait for a change to occur, then call hasChanged()
 	 */
 	version(linux)
-	pragma(inline, false) // not performance-critical
 	void waitChanged()
 	in (path)
 	{
@@ -178,14 +177,12 @@ struct FileWatch
 		}
 	}
 	else // !version(linux)
-	pragma(inline, false) // not performance-critical
 	void waitChanged()
 	in (path)
 	{
 		return waitChangedFallback();
 	}
 
-	pragma(inline, false)
 	private void waitChangedFallback()
 	{
 		while (!hasChanged)

@@ -5,11 +5,10 @@
  */
 module demoreader.markfile;
 
+import core.stdc.stdio : stdout, stderr; // override std.stdio
 import core.stdc.stdlib : exit;
 import std.file;
 import std.stdio;
-
-import core.stdc.stdio : stdout, stderr; // override std.stdio
 
 struct Mark
 {

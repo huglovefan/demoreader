@@ -4,6 +4,7 @@
 module demoreader.util.byteprinter;
 
 import core.stdc.stdio;
+import std.utf;
 
 enum BYTEPRINTER_NO_UNICODE = 1; // disable utf-8 support, don't treat it as text
 enum BYTEPRINTER_NO_TEXT = 2; // print bytes only
@@ -49,7 +50,6 @@ void printbytes(ubyte[] data, int flags = 0)
 				// validate character
 				try
 				{
-					import std.utf;
 					validate(cast(char[])data[i..i+1+len]);
 				}
 				catch (Throwable)

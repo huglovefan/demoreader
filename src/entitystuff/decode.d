@@ -4,9 +4,11 @@ import core.stdc.stdio;
 import core.bitop;
 import std.array;
 import std.math;
-import demoreader.valve.bitbuf;
 import demoreader.entitystuff;
 import demoreader.entitystuff.datatable;
+import demoreader.globals : TRACE1;
+import demoreader.player : Player;
+import demoreader.valve.bitbuf;
 
 // -----------------------------------------------------------------------------
 
@@ -84,10 +86,6 @@ if (is(T : EntityProperty!U, U))
 	alias PropType(_ : EntityProperty!X, X) = X;
 	alias U = PropType!T;
 
-	// for trace print
-	import demoreader.globals : TRACE1;
-	import demoreader.player : Player2;
-
 	static if (T.IsArray)
 	{
 		alias ElementType(_ : X[], X) = X;
@@ -141,9 +139,10 @@ if (is(T : EntityProperty!U, U))
 
 						const(char)* name;
 
-						if (!name && entindex >= 1 && entindex <= Player2.maxPlayers)
+						static if (0) // TODO
+						if (!name && entindex >= 1 && entindex <= Player.maxPlayers)
 						{
-							Player2* pl = Player2.getByEntIndex(entindex);
+							Player* pl = Player.getByEntIndex(entindex);
 							if (pl)
 								name = pl.ttyname;
 						}
@@ -220,9 +219,10 @@ if (is(T : EntityProperty!U, U))
 						classname = gameState.classes[ent.classid].name.ptr;
 						pvs = ent.inPvs;
 					}
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 
@@ -362,7 +362,6 @@ FloatParseType getFloatParseType(PropFlag flags) pure
 
 // src/Utils/ParserUtils.cs
 
-pragma(inline, true)
 int highestBitIndex(uint i)
 {
 	debug assert(i); // bsr is undefined for zero

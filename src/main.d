@@ -1,24 +1,26 @@
 module demoreader.main;
 
-import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import core.sys.posix.signal;
+import core.sys.posix.stdio;
 import core.sys.posix.unistd;
 import core.time;
 import std.algorithm;
 import std.array;
+import std.ascii;
 import std.file;
 import std.path;
 import std.process;
-import std.string;
 import std.stdio : File;
+import std.string;
 import demoreader.dr;
-import demoreader.util.filewatch;
-import demoreader.util.glob;
+import demoreader.globals;
 import demoreader.jsonoutput;
 import demoreader.markfile;
-import demoreader.globals;
+import demoreader.util.filewatch;
+import demoreader.util.glob;
+static import std.stdio;
 
 // ex: --DRT-gcopt=profile:1
 extern(C) __gshared bool rt_cmdline_enabled = true;
@@ -111,8 +113,6 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 			version(Posix)
 			case "-pager":
 			{
-				import std.stdio : stdin, stdout, stderr; // need the D ones
-
 				// ignore duplicate -pager
 				if ("_DEMOREADER_IN_PAGER" in environment)
 					break;
@@ -147,14 +147,13 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 						output.close();
 
 					signal(SIGINT, SIG_IGN); // ignore: allow ^C to interrupt scrolling in less
-					dr = spawnProcess(newargs, stdin, output.writeEnd, output.writeEnd, ["_DEMOREADER_IN_PAGER": "1"]);
+					dr = spawnProcess(newargs, std.stdio.stdin, output.writeEnd, output.writeEnd, ["_DEMOREADER_IN_PAGER": "1"]);
 
 					signal(SIGINT, SIG_DFL); // default
-					less = spawnShell(pagerCmd, output.readEnd, stdout, stderr);
+					less = spawnShell(pagerCmd, output.readEnd, std.stdio.stdout, std.stdio.stderr);
 				}
 				catch (Exception e)
 				{
-					import core.stdc.stdio : stderr; // C one again
 					fprintf(stderr, "demoreader: failed to start pager: %.*s\n", cast(int)e.msg.length, e.msg.ptr);
 					exit(1);
 				}
@@ -169,6 +168,10 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 
 				exit(rv);
 			}
+			case "-html":
+				g_htmlOut = fdopen(dup(1), "w");
+				dup2(2, 1);
+				break;
 			case "-json":
 				g_jsonFlag = true;
 				break;
@@ -210,8 +213,19 @@ void parseCommandLine(ref DrMain drm, ref string[] args)
 				break;
 			default:
 			{
+				// undocumented, add a search dir for programmatic use
+				if (args[1].startsWith("-sd="))
+				{
+					string sd = args[1]["-sd=".length..$];
+					if (!sd.exists)
+					{
+						fprintf(stderr, "sd '%.*s' does not exist\n", cast(int)sd.length, sd.ptr);
+						exit(1);
+					}
+					drm.searchDirs ~= sd;
+				}
 				// looks like an option?
-				if (args[1].length && (args[1][0] == '-' || args[1][0] == '+'))
+				else if (args[1].length && (args[1][0] == '-' || args[1][0] == '+'))
 				{
 					// range thing?
 					if (args[1].length >= 2 && args[1][1] >= '0' && args[1][1] <= '9')
@@ -726,7 +740,6 @@ bool demoNameCompareFn(string p1, string p2)
 		 * check duplicate count (if both have underscore + digit here)
 		 */
 
-		import std.ascii;
 		if (
 			p1.isAutoNamedDemo &&
 			p2.isAutoNamedDemo &&
@@ -777,15 +790,19 @@ unittest
 	foreach (i; 0..3)
 		assert(imported!"std.random".randomShuffle(someDemos).array.sort!demoNameCompareFn.array == someDemos);
 }
-static assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "2022-07-24_16-46-31_1.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_2.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_10.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-07-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == true); // this needs the numeric comparison to work right
-static assert(demoNameCompareFn("2022-07-24_16-46-31_10.dem", "2022-07-24_16-46-31_2.dem") == false); // this needs the numeric comparison to work right
-static assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_xyz.dem") == true); // (byte comparison)
-static assert(demoNameCompareFn("2022-08-24_16-46-31.dem",   "2022-07-24_16-46-31_1.dem") == false); // remember to check the date portion
-static assert(demoNameCompareFn("2022-08-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == false); // remember to check the date portion!!
-static assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "202.dem") == false); // no bounds error
+
+unittest
+{
+	assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "2022-07-24_16-46-31_1.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_2.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_10.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-07-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == true); // this needs the numeric comparison to work right
+	assert(demoNameCompareFn("2022-07-24_16-46-31_10.dem", "2022-07-24_16-46-31_2.dem") == false); // this needs the numeric comparison to work right
+	assert(demoNameCompareFn("2022-07-24_16-46-31_1.dem", "2022-07-24_16-46-31_xyz.dem") == true); // (byte comparison)
+	assert(demoNameCompareFn("2022-08-24_16-46-31.dem",   "2022-07-24_16-46-31_1.dem") == false); // remember to check the date portion
+	assert(demoNameCompareFn("2022-08-24_16-46-31_2.dem", "2022-07-24_16-46-31_10.dem") == false); // remember to check the date portion!!
+	assert(demoNameCompareFn("2022-07-24_16-46-31.dem", "202.dem") == false); // no bounds error
+}
 
 /// pattern for dirEntries() to match automatically named demos
 enum autoNamedDemoPattern = "20??-??-??_*.dem";
@@ -803,8 +820,12 @@ bool isAutoNamedDemo(string path)
 		base[10] == '_' &&
 		base.extension == ".dem";
 }
-static assert(isAutoNamedDemo("2022-07-24_16-46-31.dem"));
-static assert(isAutoNamedDemo("2022-07-24_16-46-31_stuff.dem"));
+
+unittest
+{
+	assert(isAutoNamedDemo("2022-07-24_16-46-31.dem"));
+	assert(isAutoNamedDemo("2022-07-24_16-46-31_stuff.dem"));
+}
 
 // -----------------------------------------------------------------------------
 

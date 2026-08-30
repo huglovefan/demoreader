@@ -3,6 +3,7 @@ module demoreader.valve.demofiledump;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
+import demoreader.dr;
 import demoreader.util.byteprinter;
 
 // -----------------------------------------------------------------------------
@@ -45,7 +46,6 @@ struct player_info_t
 	{
 		if (name != oldValue.name)
 		{
-			import demoreader.dr;
 			assert(DemoReader.get().serverAllowsNameChange);
 		}
 		assert(userID          == oldValue.userID);
@@ -92,7 +92,6 @@ struct player_info_t
 		else
 		{
 			// bot, check that they're allowed
-			import demoreader.dr;
 			assert(DemoReader.get().serverAllowsBots);
 
 			// skial/2022-06-27_19-57-54.dem
@@ -109,7 +108,9 @@ struct player_info_t
 			}
 
 		}
-		assert(!guid.hasHiddenData);
+		if (guid.hasHiddenData)
+			// tf2-d1.dem (2013)
+			assert(guid == "BOT\0 CBaseClient::SendServerInfo\0");
 
 		// 4. padding1
 		assert(padding1.isAllZeros);
@@ -133,7 +134,6 @@ struct player_info_t
 		// 7. fakeplayer
 		if (fakeplayer)
 		{
-			import demoreader.dr;
 			assert(guid[0] == 'B');
 			assert(DemoReader.get().serverAllowsBots);
 		}
@@ -141,7 +141,6 @@ struct player_info_t
 		{
 			// fakeplayer not set
 			// this should be a real player then
-			import demoreader.dr;
 			if (DemoReader.get().isOfficialServer)
 			{
 				assert(guid[0] == '[');
@@ -157,7 +156,6 @@ struct player_info_t
 		// 8. ishltv
 		if (ishltv)
 		{
-			import demoreader.dr;
 			assert(fakeplayer);
 			assert(guid[0] == 'B');
 			assert(DemoReader.get().serverAllowsHalfLifeTelevision);
@@ -184,7 +182,6 @@ struct player_info_t
 		}
 		else
 		{
-			import demoreader.dr;
 			assert(DemoReader.get().serverAllowsCustomFileDownload);
 
 			if (filesDownloaded == 1)
@@ -260,7 +257,6 @@ struct player_info_t
 			{
 				debug
 				{
-					import core.stdc.stdio;
 					fprintf(stderr, "unknown fields setup 0x%x\n", fields);
 				}
 				assert(0, "unknown player info fields setup");
@@ -338,7 +334,7 @@ struct player_info_t
 		printf("\b\b)"); // erase last ", " by terminal magic
 	}
 }
-static assert(player_info_t.sizeof == 132);
+debug static assert(player_info_t.sizeof == 132);
 
 private:
 
@@ -353,8 +349,12 @@ bool hasHiddenData(char[] s)
 	}
 	assert(0);
 }
-static assert(!hasHiddenData([1, 2, 0]));
-static assert( hasHiddenData([1, 2, 0, 1, 0]));
+
+unittest
+{
+	assert(!hasHiddenData([1, 2, 0]));
+	assert( hasHiddenData([1, 2, 0, 1, 0]));
+}
 
 bool isAllZeros(C)(C[] data)
 if (C.sizeof == 1)
@@ -392,6 +392,10 @@ bool hasEmbeddedNull(char[] s)
 	}
 	return seenCharAfterNul != 0;
 }
-static assert(!hasEmbeddedNull([0]));
-static assert(!hasEmbeddedNull([1, 0]));
-static assert( hasEmbeddedNull([1, 0, 1, 0]));
+
+unittest
+{
+	assert(!hasEmbeddedNull([0]));
+	assert(!hasEmbeddedNull([1, 0]));
+	assert( hasEmbeddedNull([1, 0, 1, 0]));
+}

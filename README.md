@@ -1,8 +1,15 @@
 # demoreader
 
-a tf2 demo file reader i wrote without talking to anyone
+this is my tf2 demo file reader from 2022, originally written to have
+way to auto-flag bots and cheaters back when that was a
+[bigger issue](#they-just-announced-it)
 
-the code is from 2022, but (to my surprise) it seemed to still work with demos as recent as 2025-11-07
+output is a basic summary of the game, with any "detections" on lines
+starting with a `-`. they're intended to be exported using grep, for
+example:
+
+    # gather steamids that set their friendsName
+    ./demoreader -1 | grep -Po '^-.*(friendsName).*\K\[U:1:[0-9]+]' > evildoers.list
 
 ![](doc/Screenshot_2026-08-04_11-50-20.png)
 
@@ -18,7 +25,7 @@ thanks:
 
     ./demoreader [options] [demofile|range|glob]...
 
-The command takes one or more demo files as an argument. Alternatively,
+The program takes one or more demo files as an argument. Alternatively,
 a range or glob pattern can be used to look them up in the configured
 search directories. See **Examples** below.
 
@@ -64,6 +71,18 @@ used. Both forms require that some
     been gathered and **sorted by filename** (independent of their
     containing directory).
 -   To just list what's matched, add `-l`.
+
+### inspiring quote
+
+    https://news.ycombinator.com/item?id=33037121
+
+    dboreham on Sept 30, 2022
+
+    I've noticed that the people running automated flagging systems seem to
+    become inordinately smug to the point that they believe their false
+    positive result over all forms of external evidence. So to them you are
+    a criminal and that's that.
+
 
 ### they JUST announced it
 

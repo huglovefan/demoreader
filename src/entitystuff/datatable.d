@@ -5,19 +5,15 @@
  */
 module demoreader.entitystuff.datatable;
 
-import core.bitop;
 import core.stdc.stdio;
 import std.algorithm.mutation : swap;
 import std.array;
 import std.exception;
-import std.math;
-import std.string;
+import demoreader.entitystuff;
+import demoreader.entitystuff.decode;
 import demoreader.globals;
 import demoreader.stringtable;
 import demoreader.valve.bitbuf;
-static import demoreader.player;
-import demoreader.entitystuff.decode;
-import demoreader.entitystuff;
 
 enum SendPropType
 {
@@ -66,7 +62,7 @@ enum FloatParseType
 
 // src/Parser/Components/Packets/DataTables.cs
 
-void parseDataTables(bf_read buf)
+void parseDataTables(bf_read buf, ref const(StringTables) stringTables)
 {
 	alias DataTable = GameState.DataTable;
 	alias Class = GameState.Class;
@@ -102,7 +98,7 @@ void parseDataTables(bf_read buf)
 	// parse instance baselines now that we're able to do that
 	if (TRACE1)
 		printf("  -> parse the stored instance baselines\n");
-	auto st = StringTable.get("instancebaseline");
+	auto st = stringTables.get("instancebaseline");
 	assert(st, "missing instance baseline string table");
 	foreach (ent; st.entries)
 	{

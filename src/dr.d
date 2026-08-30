@@ -6,46 +6,48 @@
  */
 module demoreader.dr;
 
+import core.stdc.stdarg;
 import core.stdc.stdio;
 import core.stdc.stdlib;
-import core.stdc.string;
 import core.time;
 import std.algorithm;
 import std.array;
 import std.datetime.systime;
+import std.digest.md;
 import std.exception;
 import std.file;
+import std.math : log2;
 import std.mmfile;
 import std.path;
 import std.stdio : File;
 import std.string;
-import demoreader.util.byteprinter;
-import demoreader.util.bytereader;
 import demoreader.cdef.libsnappy;
-import demoreader.util.filewatch;
+import demoreader.entitystuff;
+import demoreader.entitystuff.decode;
 import demoreader.gameevent;
 import demoreader.globals;
 import demoreader.jsonoutput;
+import demoreader.lzss;
 import demoreader.player;
-import demoreader.util.sprint;
 import demoreader.stringtable;
 import demoreader.ttycolor;
+import demoreader.util.bytereader;
+import demoreader.util.filewatch;
+import demoreader.util.sprint;
 import demoreader.valve.bitbuf;
 import demoreader.valve.demofile;
 import demoreader.vote;
-static import std.file;
-
-static import demoreader.entitystuff; // test
 
 enum ubyte INVALID_PLAYER_SLOT = ubyte.max;
 
 final class DemoReader
 {
-	private
-	{
-		FileWatch    fw;
-		ByteReader   br;
-	}
+	private FileWatch    fw;
+	private ByteReader   br;
+	private Votes        votes;
+	private StringTables stringTables;
+	private Players      players;
+	private GameEvents   gameEvents;
 
 	string       filePath;    /// path to demo file
 	demoheader_t header;      /// demo file header
@@ -82,15 +84,12 @@ final class DemoReader
 	/// this makes entity parsing impossible since we don't get class data
 	bool         isBrokenDemoMissingDataTables;
 
-	pragma(inline, true)
-	{
-		bool serverAllowsSpectators()         { return !isOfficialServer; }
-		bool serverAllowsBots()               { return !isOfficialServer; }
-		bool serverAllowsTeamChange()         { return !isMatchMakingGame; }
-		bool serverAllowsNameChange()         { return !isOfficialServer; }
-		bool serverAllowsHalfLifeTelevision() { return !isOfficialServer; }
-		bool serverAllowsCustomFileDownload() { return !isOfficialServer; }
-	}
+	bool serverAllowsSpectators()         { return !isOfficialServer; }
+	bool serverAllowsBots()               { return !isOfficialServer; }
+	bool serverAllowsTeamChange()         { return !isMatchMakingGame; }
+	bool serverAllowsNameChange()         { return !isOfficialServer; }
+	bool serverAllowsHalfLifeTelevision() { return !isOfficialServer; }
+	bool serverAllowsCustomFileDownload() { return !isOfficialServer; }
 
 	string fileName()
 	{
@@ -102,19 +101,16 @@ final class DemoReader
 		return header.mapname.fromStringz;
 	}
 
-	static
-	{
-		private DemoReader instance;
+	static private DemoReader instance;
 
-		DemoReader get()
-		{
-			debug assert(instance);
-			return instance;
-		}
-		private void setInstance(DemoReader dr)
-		{
-			instance = dr;
-		}
+	static DemoReader get()
+	{
+		debug assert(instance);
+		return instance;
+	}
+	static private void setInstance(DemoReader dr)
+	{
+		instance = dr;
 	}
 
 	this(string filename)
@@ -234,10 +230,10 @@ final class DemoReader
 
 		scope(exit)
 		{
-			GameEvent.reset();
-			StringTable.reset();
-			Player2.reset();
-			Vote.reset();
+			gameEvents.reset();
+			stringTables.reset();
+			players.reset();
+			votes.reset();
 			demoreader.entitystuff.gameState.reset();
 		}
 
@@ -523,7 +519,7 @@ private:
 			//     client. time warps are what we want to detect and skip here.
 			if (diff <= maxJump || (!signonState && !demoTickNo) || !isLocalListenServer)
 			{
-				if (TRACE1)
+				if (0)
 					printf("* assign tick %u -> %u (diff %u, signonState %u)\n", demoTickNo, tick, diff, signonState);
 				demoTickNo = tick;
 			}
@@ -631,7 +627,7 @@ private:
 				// did we get any entity updates this packet?
 				if (auto snap = demoreader.entitystuff.gameState.snapshotForTick(serverTickNo))
 				{
-					for (int i = 1; i <= Player2.maxPlayers; i++)
+					for (int i = 1; i <= players.maxPlayers; i++)
 					{
 						auto ent = snap.entities[i];
 
@@ -661,7 +657,7 @@ private:
 							pitch < -0x1.652d3p+6)
 						{
 							// force: they might've just disconnected (2022-07-31_06-58-54.dem)
-							Player2 *pl = Player2.getByEntIndex(i, /* force */ true);
+							Player *pl = players.getByEntIndex(i, /* force */ true);
 							assert(pl);
 
 							if (!pl.badPitchTick || serverTickNo >= pl.badPitchTick+66)
@@ -682,7 +678,7 @@ private:
 
 					// TEST
 					static if (0)
-					for (int i = 1; i <= Player2.maxPlayers; i++)
+					for (int i = 1; i <= players.maxPlayers; i++)
 					{
 						auto ent = demoreader.entitystuff.gameState.entities[i];
 
@@ -767,6 +763,8 @@ private:
 			{
 				// end of time
 				tracePrint();
+				if (g_htmlOut)
+					htmlSimpleRow("End of demo.");
 				break;
 			}
 
@@ -783,8 +781,6 @@ private:
 
 			case dem_synctick:
 			{
-				import demoreader.entitystuff : gameState;
-
 				tracePrint();
 
 				if (signonState != 5)
@@ -1077,9 +1073,9 @@ private:
 						}
 						if (TRACE1)
 						{
-							Player2* pl;
-							if (entindex >= 1 && entindex < 1+Player2.maxPlayers)
-								pl = Player2.getByEntIndex(entindex);
+							Player* pl;
+							if (entindex >= 1 && entindex < 1+players.maxPlayers)
+								pl = players.getByEntIndex(entindex);
 
 							int classid = -1;
 							int pvs = -1;
@@ -1117,7 +1113,7 @@ private:
 						}
 
 						const(char)[] soundname;
-						if (StringTable* st = StringTable.get("soundprecache"))
+						if (StringTable* st = stringTables.get("soundprecache"))
 						{
 							if (soundNum >= 0 && soundNum < st.entries.length)
 							{
@@ -1128,8 +1124,8 @@ private:
 						// sound by a player? check if it's a noise maker
 						// 2022-08-16_19-13-21_4.dem
 						if (soundname)
-						if (entindex >= 1 && entindex <= Player2.maxPlayers)
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (entindex >= 1 && entindex <= players.maxPlayers)
+						if (Player* pl = players.getByEntIndex(entindex))
 						{
 							// https://wiki.teamfortress.com/wiki/Noise_Maker
 							// https://github.com/SteamDatabase/GameTracking-TF2/blob/master/tf/tf2_misc_dir/scripts/game_sounds_player.txt
@@ -1394,9 +1390,6 @@ private:
 					/**/            : buf.ReadUBitLong(NET_MAX_PAYLOAD_BITS_V23);
 					scope sbuf = new bf_read(buf, length);
 
-					import demoreader.entitystuff;
-					import demoreader.entitystuff.decode;
-
 					Entity ent;
 
 					if (!numEntries)
@@ -1417,11 +1410,11 @@ private:
 					// listenserver/2022-10-08_05-10-56.dem
 					// listenserver/2022-10-08_05-18-24.dem
 
-					static void doneWithEnt(Entity ent)
+					void doneWithEnt(Entity ent)
 					{
 						if (gameState.classes[ent.classid].name == "CTEPlayerDecal")
 						{
-							Player2* pl = Player2.getByEntIndex(ent.prop!int("m_nPlayer"));
+							Player* pl = players.getByEntIndex(ent.prop!int("m_nPlayer"));
 
 							if (pl)
 								printf("-player used spray: %s\n", pl.ttyname);
@@ -1494,7 +1487,7 @@ private:
 					/**/            ? buf.ReadUBitLong(MAX_SOUND_INDEX_BITS)
 					/**/            : buf.ReadUBitLong(13);
 
-					StringTable* st = StringTable.get("soundprecache");
+					StringTable* st = stringTables.get("soundprecache");
 					assert(st);
 
 					if (soundIndex < st.entries.length)
@@ -1525,10 +1518,10 @@ private:
 
 					scope sbuf = new bf_read(buf, length);
 
-					StringTable* st = StringTable.get(tableId);
+					StringTable* st = stringTables.get(tableId);
 					assert(st);
 
-					updateStringTable(sbuf, st, changedEntries);
+					updateStringTable(sbuf, st, changedEntries, players, stringTables);
 
 					assert(!sbuf.GetNumBitsLeft()); // bit array
 
@@ -1558,7 +1551,7 @@ private:
 					ubyte[] data       = buf.ReadDBitArray(length);
 
 					// force: this might come after they disconnect, see 2022-07-31_05-55-35.dem
-					Player2* pl = Player2.getBySlotIndex(fromClient, /* force */ true);
+					Player* pl = players.getBySlotIndex(fromClient, /* force */ true);
 					assert(pl);
 
 					if (!pl.usedVoiceChat)
@@ -1610,7 +1603,7 @@ private:
 					if (TRACE1)
 					{
 						printf("   entity=%u\n", entindex);
-						printf("   class=%u (%s)\n", classid, demoreader.entitystuff.gameState.classes[classid].name.ptr);
+						printf("   class=%u (%s)\n", classid, demoreader.entitystuff.gameState.classes.length ? demoreader.entitystuff.gameState.classes[classid].name.ptr : "?".ptr);
 						printf("   data=");
 						sbuf.PrintBytes();
 					}
@@ -1634,7 +1627,7 @@ private:
 					{
 						case "CTFPlayer":
 						{
-							Player2* pl = Player2.getByEntIndex(entindex);
+							Player* pl = players.getByEntIndex(entindex);
 							assert(pl);
 
 							int type = sbuf.ReadByte();
@@ -1687,11 +1680,11 @@ private:
 							auto ent = demoreader.entitystuff.gameState.entities[entindex];
 							assert(ent);
 
-							Player2* owner;
+							Player* owner;
 							if (ent)
 							{
 								auto ownerent = ent.prop!int("m_hOwnerEntity", -1);
-								owner = Player2.getByEntIndex(ownerent & 0x7ff);
+								owner = players.getByEntIndex(ownerent & 0x7ff);
 							}
 
 							//printf("-unknown CTFWearableCampaignItem entity message: value=%d m_nState=%d entindex=%d owner=%s\n",
@@ -1725,14 +1718,27 @@ private:
 					// server info thing
 					if (text.length && text[0] == '\n')
 					{
-						printf("%s", text.ptr);
-
 						enum buildColon = "\nBuild: ";
 						size_t i = text.indexOf(buildColon);
 						assert(i != -1);
 						buildNumber = atoi(&text[i+buildColon.length]);
 						assert(buildNumber);
 						JsonOutput.setBuildNumber(buildNumber);
+
+						if (g_htmlOut)
+						{
+							// trim, the hard way
+							while (text.length && text[0] == '\n')
+								text = text[1..$];
+							while (text.length && text[$-1] == '\n')
+							{
+								text[$-1] = 0;
+								text = text[0..$-1];
+							}
+							htmlSimpleRow("<pre>%s</pre>", htmlspecialchars(text).ptr);
+						}
+						else
+							printf("%s", text.ptr);
 					}
 					else
 					{
@@ -1796,8 +1802,6 @@ private:
 
 				case svc_createstringtable:
 				{
-					import std.math : log2;
-
 					enum NET_MAX_PAYLOAD_BITS_V23 = 17;
 
 					char[]  tableName         = buf.ReadDString();
@@ -1830,14 +1834,14 @@ private:
 					}
 
 					// wasn't already created
-					assert(!StringTable.get(tableName));
+					assert(!stringTables.get(tableName));
 
 					StringTable* st      = new StringTable();
 					st.name              = tableName;
 					st.maxEntries        = maxEntries;
 					st.userDataFixedSize = !!userDataFixedSize;
 					st.userDataSizeBits  = userDataSizeBits;
-					StringTable.defs    ~= st;
+					stringTables.defs   ~= st;
 
 					scope sbuf = new bf_read(data, length);
 
@@ -1863,8 +1867,6 @@ private:
 						}
 						else if (method == "LZSS")
 						{
-							import demoreader.lzss;
-
 							ubyte[] comp = data;
 							ubyte[] decomp = uninitializedArray!(ubyte[])(usize);
 
@@ -1879,7 +1881,7 @@ private:
 						}
 					}
 
-					readCreateStringTable(sbuf, st, numEntries);
+					readCreateStringTable(sbuf, st, numEntries, players, stringTables);
 
 					break;
 				}
@@ -1947,7 +1949,7 @@ private:
 					/**/                     : 0;
 					uint   lowPriority       = buf.ReadOneBit();
 
-					StringTable* st = StringTable.get("decalprecache");
+					StringTable* st = stringTables.get("decalprecache");
 					assert(st);
 
 					const(char)[] textureName;
@@ -1999,9 +2001,9 @@ private:
 					if (TRACE1)
 					{
 						printf("   entity=%u\n", entity);
-						if (entity >= 1 && entity <= Player2.maxPlayers)
+						if (entity >= 1 && entity <= players.maxPlayers)
 						{
-							if (Player2* pl = Player2.getByEntIndex(entity))
+							if (Player* pl = players.getByEntIndex(entity))
 								printf("   %s %s\n", pl.info.guid.ptr, pl.ttyname);
 						}
 					}
@@ -2079,7 +2081,7 @@ private:
 
 					handleGameEventList(data);
 
-					assert(GameEvent.defs.length == numEvents);
+					assert(gameEvents.defs.length == numEvents);
 
 					break;
 				}
@@ -2140,7 +2142,7 @@ private:
 					ownPlayerSlot = playerSlot;
 					assert(playerSlot >= 0 && ownPlayerSlot < maxClients);
 
-					Player2.createSlots(maxClients);
+					players.createSlots(maxClients);
 
 					JsonOutput.setMapName(mapName);
 
@@ -2290,20 +2292,18 @@ private:
 		}
 	}
 
-	pragma(inline, false) // once per demo
 	void handleDataTables(ubyte[] data)
 	{
 		scope buf = new bf_read(data);
-		demoreader.entitystuff.parseDataTables(buf);
+		demoreader.entitystuff.parseDataTables(buf, stringTables);
 		assert(!buf.GetNumBytesLeft()); // byte-aligned
 	}
 
-	pragma(inline, false) // once per demo
 	void handleStringTables(ubyte[] data)
 	{
 		scope buf = new bf_read(data);
 
-		readDemoStringTables(buf);
+		readDemoStringTables(buf, players, stringTables);
 
 		assert(!buf.GetNumBytesLeft()); // byte-aligned
 	}
@@ -2373,13 +2373,13 @@ private:
 				uint menu   = msgbuf.ReadByte();
 				uint item   = msgbuf.ReadByte();
 
-				Player2* pl = Player2.getByEntIndex(client);
+				Player* pl = players.getByEntIndex(client);
 				assert(pl);
 				//pl.onSpawnedActivity(); // might be a spy?
 
 				// why does this happen?
 				// sometimes we get voice commands from the enemy team
-				Player2* localPlayer = Player2.getBySlotIndex(ownPlayerSlot);
+				Player* localPlayer = players.getBySlotIndex(ownPlayerSlot);
 				assert(localPlayer);
 				if (pl.team && localPlayer.team && pl.team != localPlayer.team)
 				{
@@ -2407,7 +2407,20 @@ private:
 				}
 
 				if (msg)
-					log("%s %s: %s", "(Voice)".teamcolorize(pl.team), pl.ttyname, msg.ptr.teamcolorize);
+				{
+					if (g_htmlOut)
+						htmlSimpleRow(
+							"<span data-team=\"%s\">(Voice)</span>"~
+							" %s"~
+							"<nobr style=\"white-space: pre;\"> :  </nobr>"~
+							"<span class=\"saytext\">%s</span>",
+							playerToTeamName(pl).ptr,
+							htmlPlayerName(pl).ptr,
+							htmlspecialchars(msg).ptr,
+							);
+					else
+						log("%s %s: %s", "(Voice)".teamcolorize(pl.team), pl.ttyname, msg.ptr.teamcolorize);
+				}
 
 				break;
 			}
@@ -2430,11 +2443,14 @@ private:
 
 					// client is valid
 					// "system" messages have the local player here
-					Player2* pl = Player2.getByEntIndex(client);
+					Player* pl = players.getByEntIndex(client);
 					assert(pl);
 
 					logStamp();
-					printSourceModColoredText(text);
+					if (g_htmlOut)
+						htmlSimpleRow("<b dir=\"auto\" lang>%s</b>", htmlSourceModColoredText(text).ptr);
+					else
+						printSourceModColoredText(text);
 					putchar('\n');
 
 					break;
@@ -2445,7 +2461,7 @@ private:
 				char[] l2          = msgbuf.ReadDString(); // (always empty?)
 
 				// force: fix demos/2022-07-21_18-16-42.dem
-				Player2* pl = Player2.getByEntIndex(client, /* force */ true);
+				Player* pl = players.getByEntIndex(client, /* force */ true);
 				assert(pl);
 
 				if (channel.canFind("Spec"))
@@ -2485,19 +2501,56 @@ private:
 				assert(l1 is null);
 				assert(l2 is null);
 
-				logStamp();
+				if (g_htmlOut)
+				{
+					bool printed;
 
-				bool sp;
-				if (channel.canFind("Dead"))
-					{ printf("%s", "*DEAD*".teamcolorize); sp = true; }
-				if (channel.canFind("Spec"))
-					{ printf("%s", "*SPEC*".teamcolorize); sp = true; }
-				if (channel.canFind("Team"))
-					{ printf("%s", "(TEAM)".teamcolorize); sp = true; }
-				if (sp)
-					printf(" ");
+					htmlBeginRow();
 
-				printf("%s :  %s\n", pl.ttyname, text.ptr.teamcolorize);
+					if (channel.canFind("Dead"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">*DEAD*</span>");
+						printed = true;
+					}
+					if (channel.canFind("Spec"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">*SPEC*</span>");
+						printed = true;
+					}
+					if (channel.canFind("Team"))
+					{
+						fprintf(g_htmlOut, "<span class=\"chatchannel\">(TEAM)</span>");
+						printed = true;
+					}
+					if (printed)
+						fprintf(g_htmlOut, " ");
+
+					fprintf(g_htmlOut,
+						"%s"~
+						"<nobr style=\"white-space: pre;\"> :  </nobr>"~
+						"<span class=\"saytext\">%s</span>",
+						htmlPlayerName(pl).ptr,
+						htmlUserText(text).ptr,
+						);
+
+					htmlEndRow();
+				}
+				else
+				{
+					logStamp();
+
+					bool sp;
+					if (channel.canFind("Dead"))
+						{ printf("%s", "*DEAD*".teamcolorize); sp = true; }
+					if (channel.canFind("Spec"))
+						{ printf("%s", "*SPEC*".teamcolorize); sp = true; }
+					if (channel.canFind("Team"))
+						{ printf("%s", "(TEAM)".teamcolorize); sp = true; }
+					if (sp)
+						printf(" ");
+
+					printf("%s :  %s\n", pl.ttyname, text.ptr.teamcolorize);
+				}
 
 				switch (channel)
 				{
@@ -2562,7 +2615,7 @@ private:
 					{
 						// force: fix 2022-07-24_15-50-15.dem
 						// this might come after userinfo is removed if they're being kicked
-						Player2* pl = Player2.getByName(arg1, /* force */ true);
+						Player* pl = players.getByName(arg1, /* force */ true);
 						if (isOfficialServer)
 							assert(pl);
 						if (!pl) // skial/sus.dem
@@ -2574,17 +2627,29 @@ private:
 					case "#game_idle_kick":
 					{
 						// force: fix 2022-07-18_18-04-16.dem
-						Player2* pl = Player2.getByName(arg1, /* force */ true);
+						Player* pl = players.getByName(arg1, /* force */ true);
 						assert(pl);
-						log("%s has been idle for too long and has been kicked", pl.ttyname);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s has been idle for too long and has been kicked",
+								htmlPlayerName(pl).ptr,
+								);
+						else
+							log("%s has been idle for too long and has been kicked", pl.ttyname);
 						break;
 					}
 
 					case "#game_player_was_team_balanced":
 					{
-						Player2* pl = Player2.getByName(arg1);
+						Player* pl = players.getByName(arg1);
 						assert(pl);
-						log("%s was moved to the other team for game balance", pl.ttyname);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s was moved to the other team for game balance",
+								htmlPlayerName(pl).ptr,
+								);
+						else
+							log("%s was moved to the other team for game balance", pl.ttyname);
 						break;
 					}
 
@@ -2644,9 +2709,14 @@ private:
 							{
 								if (msgDest == Dest.talk)
 								{
-									logStamp();
-									printSourceModColoredText(line);
-									putchar('\n');
+									if (g_htmlOut)
+										htmlSimpleRow("<b dir=\"auto\" lang>%s</b>", htmlSourceModColoredText(line).ptr);
+									else
+									{
+										logStamp();
+										printSourceModColoredText(line);
+										putchar('\n');
+									}
 								}
 								else
 								{
@@ -2702,25 +2772,25 @@ private:
 				uint   unk2          = msgbuf.ReadOneBit();
 				uint   targetEntIdx  = msgbuf.GetNumBitsLeft() ? msgbuf.ReadByte() : 0;
 
-				Player2* issuer;
+				Player* issuer;
 				if (caller >= 1 && caller < 1+32)
 				{
-					issuer = Player2.getByEntIndex(caller);
+					issuer = players.getByEntIndex(caller);
 					assert(issuer);
 					issuer.onSpawnedActivity();
 				}
 
-				Player2* target;
+				Player* target;
 				if (targetEntIdx)
 				{
-					target = Player2.getByEntIndex(targetEntIdx);
+					target = players.getByEntIndex(targetEntIdx);
 					assert(target);
 					assert(target.nameEquals(param1));
 					target.onSpawnedActivity();
 				}
 
 				if (issuer && target)
-					Player2.impliedSameTeam(issuer, target);
+					players.impliedSameTeam(issuer, target);
 
 				switch (issue)
 				{
@@ -2730,11 +2800,19 @@ private:
 					case "#TF_vote_kick_player_scamming":
 					{
 						assert(issuer && target);
-						log("Vote: %s wants to kick %s with reason: %s",
-							issuer.ttyname,
-							target.ttyname,
-							issue.ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> %s wants to kick %s with reason: %s",
+								htmlPlayerName(issuer).ptr,
+								htmlPlayerName(target).ptr,
+								htmlspecialchars(issue).ptr,
+								);
+						else
+							log("Vote: %s wants to kick %s with reason: %s",
+								issuer.ttyname,
+								target.ttyname,
+								issue.ptr,
+								);
 						break;
 					}
 
@@ -2799,8 +2877,14 @@ private:
 					case "TF_vote_passed_ban_player":
 					{
 						char[] playerName = detail;
-						Player2* pl = Player2.getByName(playerName, /* force */ true);
-						log("Vote: Vote passed, banning player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
+						Player* pl = players.getByName(playerName, /* force */ true);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> Vote passed, banning player: %s",
+								pl ? htmlPlayerName(pl).ptr : htmlUserText(playerName).ptr,
+								);
+						else
+							log("Vote: Vote passed, banning player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
 						break;
 					}
 
@@ -2809,8 +2893,14 @@ private:
 					case "TF_vote_passed_kick_player":
 					{
 						char[] playerName = detail;
-						Player2* pl = Player2.getByName(playerName, /* force */ true);
-						log("Vote: Vote passed, kicking player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
+						Player* pl = players.getByName(playerName, /* force */ true);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"<strong>Vote:</strong> Vote passed, kicking player: %s",
+								pl ? htmlPlayerName(pl).ptr : htmlUserText(playerName).ptr,
+								);
+						else
+							log("Vote: Vote passed, kicking player: %s", pl ? pl.ttyname : playerName.ptr.teamcolorize);
 						break;
 					}
 
@@ -2831,7 +2921,7 @@ private:
 						
 				}
 
-				Vote.get(voteIndex).remove();
+				votes.remove(voteIndex);
 
 				assert(unk1 == 0x23);
 
@@ -2853,9 +2943,12 @@ private:
 				if (voteTeamIndex == 0 && reason == 0)
 					break;
 
-				log("Vote: Vote failed");
+				if (g_htmlOut)
+					htmlSimpleRow("<strong>Vote:</strong> Vote failed");
+				else
+					log("Vote: Vote failed");
 
-				Vote.get(voteIndex).remove();
+				votes.remove(voteIndex);
 
 				assert(voteTeamIndex == 0 || voteTeamIndex == 2 || voteTeamIndex == 3);
 				assert(reason == 3);
@@ -2883,7 +2976,7 @@ private:
 	 */
 	bool handleGameEvent(bf_read evbuf)
 	{
-		if (!GameEvent.defs.length)
+		if (!gameEvents.defs.length)
 		{
 			if (!tryLoadGameEventListFromDisk())
 			{
@@ -2892,7 +2985,7 @@ private:
 			}
 		}
 
-		GameEvent* ge = GameEvent.get(evbuf.ReadUBitLong(9));
+		GameEvent* ge = gameEvents.get(evbuf.ReadUBitLong(9));
 		assert(ge);
 
 		auto args = ge.parse(evbuf);
@@ -2906,22 +2999,22 @@ private:
 				final switch (p.type)
 				{
 					case Param.Type.String:
-						printf("    %s=%s\n", p.name.ptr, args.get!(char[])(p.name).ptr);
+						printf("    %s=%s\n", p.name.ptr, args.get!(char[])(p.name, gameEvents).ptr);
 						break;
 					case Param.Type.Float:
-						printf("    %s=%f\n", p.name.ptr, args.get!float(p.name));
+						printf("    %s=%f\n", p.name.ptr, args.get!float(p.name, gameEvents));
 						break;
 					case Param.Type.Long:
-						printf("    %s=%d\n", p.name.ptr, args.get!int(p.name));
+						printf("    %s=%d\n", p.name.ptr, args.get!int(p.name, gameEvents));
 						break;
 					case Param.Type.Short:
-						printf("    %s=%d\n", p.name.ptr, args.get!short(p.name));
+						printf("    %s=%d\n", p.name.ptr, args.get!short(p.name, gameEvents));
 						break;
 					case Param.Type.Byte:
-						printf("    %s=%u\n", p.name.ptr, args.get!ubyte(p.name));
+						printf("    %s=%u\n", p.name.ptr, args.get!ubyte(p.name, gameEvents));
 						break;
 					case Param.Type.Bool:
-						printf("    %s=%s\n", p.name.ptr, args.get!bool(p.name) ? "true".ptr : "false".ptr);
+						printf("    %s=%s\n", p.name.ptr, args.get!bool(p.name, gameEvents) ? "true".ptr : "false".ptr);
 						break;
 				}
 			}
@@ -2931,10 +3024,10 @@ private:
 		{
 			case "achievement_earned":
 			{
-				int  achievement = args.get!short("achievement");
-				uint player      = args.get!ubyte("player");
+				int  achievement = args.get!short("achievement", gameEvents);
+				uint player      = args.get!ubyte("player", gameEvents);
 
-				Player2* pl = Player2.getByEntIndex(player);
+				Player* pl = players.getByEntIndex(player);
 				assert(pl);
 				log("%s earned achievement %d", pl.ttyname, achievement);
 
@@ -2953,18 +3046,18 @@ private:
 			// https://github.com/nullworks/cathook/blob/285e22a/src/hooks/SendNetMsg.cpp#L36
 			case "cl_drawline":
 			{
-				uint  line   = args.get!ubyte("line");
-				uint  panel  = args.get!ubyte("panel");
-				uint  player = args.get!ubyte("player");
-				float x      = args.get!float("x");
-				float y      = args.get!float("y");
+				uint  line   = args.get!ubyte("line", gameEvents);
+				uint  panel  = args.get!ubyte("panel", gameEvents);
+				uint  player = args.get!ubyte("player", gameEvents);
+				float x      = args.get!float("x", gameEvents);
+				float y      = args.get!float("y", gameEvents);
 
 				assert(line == 0);
 				assert(panel == 2);
 				assert(x == 0xca7);
 				assert(y == 1234567);
 
-				Player2* pl = Player2.getByEntIndex(player);
+				Player* pl = players.getByEntIndex(player);
 				assert(pl);
 				printf("-player used cl_drawline: %s\n", pl.ttyname);
 
@@ -2973,7 +3066,7 @@ private:
 
 			case "ctf_flag_captured":
 			{
-				int team = args.get!short("capping_team");
+				int team = args.get!short("capping_team", gameEvents);
 
 				string teamname =
 					team == 2 ? "RED" :
@@ -2993,8 +3086,8 @@ private:
 			 */
 			case "player_changeclass":
 			{
-				int class_ = args.get!short("class");
-				int userid = args.get!short("userid");
+				int class_ = args.get!short("class", gameEvents);
+				int userid = args.get!short("userid", gameEvents);
 
 				static immutable classNames = [
 					null,
@@ -3012,7 +3105,7 @@ private:
 
 				// force: this might come after they disconnect for "Processing time exceeded"
 				// see 2022-07-24_21-23-50.dem
-				Player2* pl = Player2.getByUserId(userid, /* force */ true);
+				Player* pl = players.getByUserId(userid, /* force */ true);
 				//assert(pl);
 				if (pl) // fixme: 2022-10-10_16-45-07.dem
 				{
@@ -3024,16 +3117,56 @@ private:
 				break;
 			}
 
+			case "teamplay_flag_event":
+			{
+				int type   = args.get!short("eventtype", gameEvents);
+				int player = args.get!short("player", gameEvents);
+
+				enum
+				{
+					captured = 2,
+				}
+
+				Player* pl = players.getByEntIndex(player);
+
+				if (g_htmlOut)
+				if (pl && type == captured)
+					htmlSimpleRow("<strong>%s has CAPTURED the intelligence!</strong>", htmlPlayerName(pl).ptr);
+
+				break;
+			}
+
+			case "teamplay_round_active":
+			{
+				// teamplay_round_start: players teleported to spawn and frozen, countdown starts
+				// ^ might happen more than once if the countdown resets
+
+				// teamplay_round_active: round officially started
+
+				if (g_htmlOut)
+					htmlSimpleRow("--- Round Start ---");
+
+				break;
+			}
+
+			case "teamplay_game_over":
+			{
+				if (g_htmlOut)
+					htmlSimpleRow("--- Game Over ---");
+
+				break;
+			}
+
 			/*
 			 * "joined the game" message in the chat, the first (visible) sign
 			 *  that a player is connecting
 			 */
 			case "player_connect_client":
 			{
-				char[] name      = args.get!(char[])("name");
-				uint   index     = args.get!ubyte("index");
-				int    userid    = args.get!short("userid");
-				char[] networkid = args.get!(char[])("networkid");
+				char[] name      = args.get!(char[])("name", gameEvents);
+				uint   index     = args.get!ubyte("index", gameEvents);
+				int    userid    = args.get!short("userid", gameEvents);
+				char[] networkid = args.get!(char[])("networkid", gameEvents);
 
 				/*
 				 * note: this is the chat message, it comes before the
@@ -3047,7 +3180,7 @@ private:
 				 * 
 				 * force: get the slot even if the player is disconnected
 				 */
-				if (Player2* pl = Player2.getBySlotIndex(index, /* force */ true))
+				if (Player* pl = players.getBySlotIndex(index, /* force */ true))
 				{
 					bool sameUserId = (pl.info.userID == userid);
 					bool sameSteamId = pl.steamIdEquals(networkid);
@@ -3105,23 +3238,27 @@ private:
 						{
 							// same steamid, so they're probably reconnecting
 							// make sure the old one is marked as disconnected
-							pl.setDisconnected(Player2.DisconnectReason.reconnectMessage);
+							pl.setDisconnected(Player.DisconnectReason.reconnectMessage);
 						}
-						Player2.createForConnectingUser(name, index, userid, networkid);
+						players.createForConnectingUser(name, index, userid, networkid);
 					}
 				}
 				else
 				{
 					// ok, slot has no player in it yet
-					Player2.createForConnectingUser(name, index, userid, networkid);
+					players.createForConnectingUser(name, index, userid, networkid);
 				}
-				debug Player2.check(); // consistency
+				debug players.check(); // consistency
 
 				// it's created now
-				Player2* pl = Player2.getBySlotIndex(index);
+				Player* pl = players.getBySlotIndex(index);
 				assert(pl);
 				assert(pl.info.userID == userid);
-				log("%s has joined the game", pl.ttyname);
+
+				if (g_htmlOut)
+					htmlSimpleRow("%s has joined the game", htmlPlayerName(pl).ptr);
+				else
+					log("%s has joined the game", pl.ttyname);
 
 				break;
 			}
@@ -3131,24 +3268,24 @@ private:
 			 */
 			case "player_death":
 			{
-				int    userid    = args.get!short("userid");
-				int    attacker  = args.get!short("attacker");
-				char[] weapon    = args.get!(char[])("weapon_logclassname");
-				int    crit_type = args.get!short("crit_type", 0);
+				int    userid    = args.get!short("userid", gameEvents);
+				int    attacker  = args.get!short("attacker", gameEvents);
+				char[] weapon    = args.get!(char[])("weapon_logclassname", gameEvents);
+				int    crit_type = args.get!short("crit_type", 0, gameEvents);
 
 				bool isCrit = (crit_type == 2); // 1 = mini, 2 = proper
 
 				// killer, if there is one
-				Player2* killer;
+				Player* killer;
 				if (attacker)
 				{
-					killer = Player2.getByUserId(attacker);
+					killer = players.getByUserId(attacker);
 					assert(killer);
 					killer.onSpawnedActivity();
 				}
 
 				// victim
-				Player2* victim = Player2.getByUserId(userid);
+				Player* victim = players.getByUserId(userid);
 				assert(victim);
 				victim.onSpawnedActivity();
 
@@ -3161,19 +3298,34 @@ private:
 					if (weapon == "world")
 					{
 						// normal s*uicide
-						log("%s suicided.%s",
-							victim.ttyname,
-							isCrit ? " (crit)".ptr : "".ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s suicided.%s",
+								htmlPlayerName(victim).ptr,
+								isCrit ? " (crit)".ptr : "".ptr,
+								);
+						else
+							log("%s suicided.%s",
+								victim.ttyname,
+								isCrit ? " (crit)".ptr : "".ptr,
+								);
 					}
 					else
 					{
 						// weapon-assisted
-						log("%s suicided.%s (%s)",
-							victim.ttyname,
-							isCrit ? " (crit)".ptr : "".ptr,
-							weapon.ptr,
-							);
+						if (g_htmlOut)
+							htmlSimpleRow(
+								"%s suicided.%s (%s)",
+								htmlPlayerName(victim).ptr,
+								isCrit ? " (crit)".ptr : "".ptr,
+								weapon.ptr,
+								);
+						else
+							log("%s suicided.%s (%s)",
+								victim.ttyname,
+								isCrit ? " (crit)".ptr : "".ptr,
+								weapon.ptr,
+								);
 					}
 
 					break;
@@ -3184,11 +3336,19 @@ private:
 				 */
 				if (!killer)
 				{
-					log("%s died.%s (%s)",
-						victim.ttyname,
-						isCrit ? " (crit)".ptr : "".ptr,
-						weapon.ptr,
-						);
+					if (g_htmlOut)
+						htmlSimpleRow(
+							"%s died.%s (%s)",
+							htmlPlayerName(victim).ptr,
+							isCrit ? " (crit)".ptr : "".ptr,
+							weapon.ptr,
+							);
+					else
+						log("%s died.%s (%s)",
+							victim.ttyname,
+							isCrit ? " (crit)".ptr : "".ptr,
+							weapon.ptr,
+							);
 
 					switch (weapon)
 					{
@@ -3230,23 +3390,32 @@ private:
 				// fix up teams
 				// NOTE: ignore "finished off" because it can happen when the player is autobalanced
 				if (weapon != "player" && !isFriendlyFireEnabled)
-					Player2.impliedOppositeTeams(killer, victim);
+					players.impliedOppositeTeams(killer, victim);
 
-				log("%s killed %s with %s.%s",
-					killer.ttyname,
-					victim.ttyname,
-					weapon.ptr.teamcolorize,
-					isCrit ? " (crit)".ptr : "".ptr,
-					);
+				if (g_htmlOut)
+					htmlSimpleRow(
+						"%s killed %s with <span class=\"weaponname\">%s</span>.%s",
+						htmlPlayerName(killer).ptr,
+						htmlPlayerName(victim).ptr,
+						htmlspecialchars(weapon).ptr,
+						isCrit ? " (crit)".ptr : "".ptr,
+						);
+				else
+					log("%s killed %s with %s.%s",
+						killer.ttyname,
+						victim.ttyname,
+						weapon.ptr.teamcolorize,
+						isCrit ? " (crit)".ptr : "".ptr,
+						);
 
 				break;
 			}
 
 			case "player_disconnect":
 			{
-				char[] name   = args.get!(char[])("name");
-				char[] reason = args.get!(char[])("reason");
-				int    userid = args.get!short("userid");
+				char[] name   = args.get!(char[])("name", gameEvents);
+				char[] reason = args.get!(char[])("reason", gameEvents);
+				int    userid = args.get!short("userid", gameEvents);
 
 				/*
 				 * force: they might already be disconnected
@@ -3254,9 +3423,9 @@ private:
 				 * also, the same userid might not exist anymore if they
 				 *  reconnected while connecting (userinfo slot reused instantly)
 				 */
-				Player2* pl = Player2.getByUserId(userid, /* force */ true);
+				Player* pl = players.getByUserId(userid, /* force */ true);
 				if (pl)
-					pl.setDisconnected(Player2.DisconnectReason.disconnectMessage);
+					pl.setDisconnected(Player.DisconnectReason.disconnectMessage);
 
 				// end the reason string at the first newline
 				const(char)[] shortreason = reason;
@@ -3269,9 +3438,19 @@ private:
 					}
 				}
 
-				log("%s left the game (%.*s)",
-					(pl) ? pl.ttyname : name.ptr.teamcolorize,
-					cast(int)shortreason.length, shortreason.ptr);
+				if (g_htmlOut)
+				{
+					// idle kicks have a dedicated message
+					if (reason != "#TF_Idle_kicked")
+						htmlSimpleRow("%s left the game (%s)",
+							htmlPlayerName(pl).ptr,
+							htmlUserText(shortreason).ptr,
+							);
+				}
+				else
+					log("%s left the game (%.*s)",
+						(pl) ? pl.ttyname : name.ptr.teamcolorize,
+						cast(int)shortreason.length, shortreason.ptr);
 
 				/+
 				 . 3118  Client Disconnect
@@ -3347,9 +3526,9 @@ private:
 			 */
 			case "player_spawn":
 			{
-				int class_ = args.get!short("class");
-				int team   = args.get!short("team");
-				int userid = args.get!short("userid");
+				int class_ = args.get!short("class", gameEvents);
+				int team   = args.get!short("team", gameEvents);
+				int userid = args.get!short("userid", gameEvents);
 
 				bool isPreConnect = (team == 0 && class_ == 0);
 
@@ -3382,7 +3561,7 @@ private:
 					}
 				}
 
-				if (Player2* pl = Player2.getByUserId(userid))
+				if (Player* pl = players.getByUserId(userid))
 				{
 					if (!isPreConnect)
 					{
@@ -3409,7 +3588,7 @@ private:
 						// check that the userid is nonexistent, not just disconnected
 						// !!!FIXME!!! check why this fails in 2022-09-04_20-01-46.dem
 						// another: 2022-09-25_22-17-33.dem
-						if (Player2* pl = Player2.getByUserId(userid, true))
+						if (Player* pl = players.getByUserId(userid, true))
 						{
 							//if (filePath.baseName != "2022-09-04_20-01-46.dem")
 							//	assert(0);
@@ -3423,12 +3602,12 @@ private:
 
 			case "player_team":
 			{
-				uint   autoteam   = args.get!bool("autoteam");
-				uint   disconnect = args.get!bool("disconnect");
-				char[] name       = args.get!(char[])("name");
-				uint   oldteam    = args.get!ubyte("oldteam");
-				uint   team       = args.get!ubyte("team");
-				int    userid     = args.get!short("userid");
+				uint   autoteam   = args.get!bool("autoteam", gameEvents);
+				uint   disconnect = args.get!bool("disconnect", gameEvents);
+				char[] name       = args.get!(char[])("name", gameEvents);
+				uint   oldteam    = args.get!ubyte("oldteam", gameEvents);
+				uint   team       = args.get!ubyte("team", gameEvents);
+				int    userid     = args.get!short("userid", gameEvents);
 
 				// some disconnects fire this (why not all?)
 				if (disconnect)
@@ -3438,7 +3617,7 @@ private:
 				if (fileName == "2022-10-14_20-10-56_2.dem") // fixme
 					getDisconnected = true;
 
-				Player2* pl = Player2.getByUserId(userid, /* force */ getDisconnected);
+				Player* pl = players.getByUserId(userid, /* force */ getDisconnected);
 				assert(pl);
 				pl.impliedTeam(team, /* force */ true); // override old team
 
@@ -3450,10 +3629,20 @@ private:
 
 				assert(teamname);
 
+				string middle;
 				if (autoteam)
-					log("%s was automatically assigned to team %s", pl.ttyname, teamname.ptr);
+					middle = "was automatically assigned to team";
 				else
-					log("%s joined team %s", pl.ttyname, teamname.ptr);
+					middle = "joined team";
+
+				if (g_htmlOut)
+					htmlSimpleRow("%s %s %s",
+						htmlPlayerName(pl).ptr,
+						middle.ptr,
+						teamname.ptr,
+						);
+				else
+					log("%s %s %s", pl.ttyname, middle.ptr, teamname.ptr);
 
 				/*
 				 * valve servers auto-assign you a team without showing the
@@ -3476,28 +3665,34 @@ private:
 
 			case "vote_cast":
 			{
-				int  entityid    = args.get!int("entityid");
-				int  team        = args.get!short("team");
-				uint vote_option = args.get!ubyte("vote_option");
+				int  entityid    = args.get!int("entityid", gameEvents);
+				int  team        = args.get!short("team", gameEvents);
+				uint vote_option = args.get!ubyte("vote_option", gameEvents);
 				int  voteidx     = (buildNumber > 7182415)
-				/**/             ? args.get!int("voteidx")
+				/**/             ? args.get!int("voteidx", gameEvents)
 				/**/             : 0;
 
-				Player2* pl = Player2.getByEntIndex(entityid);
+				Player* pl = players.getByEntIndex(entityid);
 				assert(pl);
 				if (team) // skial
 					pl.impliedTeam(team);
 
-				log("Vote: %s voted %s", pl.ttyname, Vote.get(voteidx).optionName(vote_option));
+				if (g_htmlOut)
+					htmlSimpleRow("<strong>Vote:</strong> %s voted %s",
+						htmlPlayerName(pl).ptr,
+						htmlspecialchars(votes.get(voteidx).optionName(vote_option).fromStringz).ptr,
+						);
+				else
+					log("Vote: %s voted %s", pl.ttyname, votes.get(voteidx).optionName(vote_option));
 
 				break;
 			}
 
 			case "vote_options":
 			{
-				uint count   = args.get!ubyte("count");
+				uint count   = args.get!ubyte("count", gameEvents);
 				int  voteidx = (buildNumber > 7182415)
-				/**/         ? args.get!int("voteidx")
+				/**/         ? args.get!int("voteidx", gameEvents)
 				/**/         : 0;
 
 				// skial hack:
@@ -3505,14 +3700,14 @@ private:
 				if (!isOfficialServer && voteidx == -1)
 					voteidx = 0;
 
-				Vote* v = Vote.get(voteidx);
+				Vote* v = votes.get(voteidx);
 
 				v.options = new char[][count];
 				foreach (i; 0..count)
 				{
 					char[16] buf = void;
 					snprintf(buf.ptr, buf.length, "option%u", i+1);
-					v.options[i] = args.get!(char[])(buf.fromStringz);
+					v.options[i] = args.get!(char[])(buf.fromStringz, gameEvents);
 				}
 
 				break;
@@ -3534,8 +3729,8 @@ private:
 			// server cvar change that's announced in the chat (e.g. sv_cheats)
 			case "server_cvar":
 			{
-				char[] name  = args.get!(char[])("cvarname");
-				char[] value = args.get!(char[])("cvarvalue");
+				char[] name  = args.get!(char[])("cvarname", gameEvents);
+				char[] value = args.get!(char[])("cvarvalue", gameEvents);
 				log("Server cvar '%s' changed to %s", name.ptr, value.ptr);
 				if (name == "mp_friendlyfire")
 					isFriendlyFireEnabled = !!atoi(value.ptr);
@@ -3544,15 +3739,15 @@ private:
 
 			case "item_found":
 			{
-				uint  isStrange  = args.get!ubyte("isstrange");
-				uint  isUnusual  = args.get!ubyte("isunusual");
-				int   itemdef    = args.get!int("itemdef");
-				uint  method     = args.get!ubyte("method");
-				uint  playerSlot = args.get!ubyte("player");
-				uint  quality    = args.get!ubyte("quality");
-				float wear       = args.get!float("wear");
+				uint  isStrange  = args.get!ubyte("isstrange", gameEvents);
+				uint  isUnusual  = args.get!ubyte("isunusual", gameEvents);
+				int   itemdef    = args.get!int("itemdef", gameEvents);
+				uint  method     = args.get!ubyte("method", gameEvents);
+				uint  playerSlot = args.get!ubyte("player", gameEvents);
+				uint  quality    = args.get!ubyte("quality", gameEvents);
+				float wear       = args.get!float("wear", gameEvents);
 
-				Player2* pl = Player2.getByEntIndex(playerSlot);
+				Player* pl = players.getByEntIndex(playerSlot);
 				assert(pl);
 
 				static immutable const(char)*[256] hasWhat = [
@@ -3593,7 +3788,6 @@ private:
 	/*
 	 * see: CGameEventManager::ParseEventList in engine/GameEventManager.cpp
 	 */
-	pragma(inline, false) // once per demo
 	void handleGameEventList(ubyte[] data)
 	{
 		enum MAX_EVENT_BITS = 9;
@@ -3609,7 +3803,7 @@ private:
 		 * this assumes that the file contents really match what we got here
 		 *  (saveGameEventList() checks this with debug=1)
 		 */
-		if (GameEvent.defs.length)
+		if (gameEvents.defs.length)
 			return;
 
 		scope evbuf = new bf_read(data);
@@ -3649,15 +3843,7 @@ private:
 			ge.params = ps[];
 		}
 
-		GameEvent.defs = ges[];
-		debug
-		{
-			if (GameEvent.defs.length > reserveNumber)
-			{
-				printf("reserveNumber too low: anticipated %u events but got %zu\n", reserveNumber, GameEvent.defs.length);
-				assert(0);
-			}
-		}
+		gameEvents.defs = ges[];
 
 		assert(!evbuf.GetNumBytesLeft()); // byte-aligned
 	}
@@ -3667,8 +3853,6 @@ private:
 	 */
 	void saveGameEventList(ubyte[] data)
 	{
-		import etc.c.zlib;
-
 		if (!isOfficialServer)
 			return; // 不要 (do not want)
 
@@ -3783,6 +3967,31 @@ private:
 		scope mm = new MmFile(filename.assumeUnique);
 		handleGameEventList(cast(ubyte[])mm[]);
 		return true;
+	}
+
+	void htmlBeginRow()
+	{
+		assert(g_htmlOut);
+		fprintf(g_htmlOut, "<tr><td>%.3f</td><td>", serverTickNo * 0.015);
+	}
+
+	pragma(printf)
+	extern(C)
+	void htmlSimpleRow(const(char)* fmt, ...)
+	{
+		va_list ap;
+		htmlBeginRow();
+		va_start(ap, fmt);
+		vfprintf(g_htmlOut, fmt, ap);
+		va_end(ap);
+		htmlEndRow();
+	}
+
+	void htmlEndRow()
+	{
+		assert(g_htmlOut);
+		fprintf(g_htmlOut, "</td></tr>\n");
+		fflush(g_htmlOut);
 	}
 }
 
@@ -3931,12 +4140,15 @@ enum UserMessage : ubyte
 	EOTLDuckEvent = 74,
 	PlayerPickupWeapon = 75,
 	QuestObjectiveCompleted = 76,
-	SPHapWeapEvent = 77,
-	HapDmg = 78,
-	HapPunch = 79,
-	HapSetDrag = 80,
-	HapSetConst = 81,
-	HapMeleeContact = 82,
+	SdkRequestEquipment = 77,
+	BuiltObject = 78,
+	SPHapWeapEvent = 79,
+	HapDmg = 80,
+	HapPunch = 81,
+	HapSetDrag = 82,
+	HapSetConst = 83,
+	HapMeleeContact = 84,
+	SavedConvar = 85,
 }
 
 static immutable string[UserMessage] userMessageToString;
@@ -4020,8 +4232,6 @@ static:
 // unused, but this is how the map md5 in svc_serverinfo is calculated
 ubyte[16] getMapChecksum(string path)
 {
-	import std.digest.md;
-
 	static struct BspLump
 	{
 		int     fileofs;
@@ -4056,4 +4266,184 @@ ubyte[16] getMapChecksum(string path)
 	}
 
 	return md5.finish();
+}
+
+// todo: convert unicode to entities
+const(char)[] htmlspecialchars(const(char)[] s)
+{
+	size_t pos = -1;
+loop:
+	foreach (i, c; s)
+	{
+		switch (c)
+		{
+		case '&':
+		case '"':
+		case '<':
+		case '>':
+			pos = i;
+			break loop;
+		case '\0':
+			assert(0); // test
+			break;
+		default:
+			break;
+		}
+	}
+	if (pos == -1)
+		return s;
+	auto ap = appender!string;
+	ap.reserve(s.length + 3 + 1); // "gt;" + "\0"
+	ap ~= s[0..pos];
+	foreach (c; s[pos..$])
+	{
+		switch (c)
+		{
+		case '\0':
+			assert(0); // test
+			break;
+		case '&':
+			ap ~= "&amp;";
+			break;
+		case '"':
+			ap ~= "&quot;";
+			break;
+		case '<':
+			ap ~= "&lt;";
+			break;
+		case '>':
+			ap ~= "&gt;";
+			break;
+		default:
+			ap ~= c;
+			break;
+		}
+	}
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+unittest
+{
+	assert(htmlspecialchars("hi") == "hi");
+	assert(htmlspecialchars("rock & roll") == "rock &amp; roll");
+	assert(htmlspecialchars("rock && roll") == "rock &amp;&amp; roll");
+	assert(htmlspecialchars(" & \" < > ") == " &amp; &quot; &lt; &gt; ");
+	assert(htmlspecialchars(">") == "&gt;");
+}
+
+string playerToTeamName(Player* pl)
+{
+	if (pl)
+	{
+		if (pl.team == 2)
+			return "red";
+		if (pl.team == 3)
+			return "blu";
+	}
+	return "unassigned";
+}
+
+/**
+ * used by:
+ * - SayText2 user message
+ * - TextMsg user message
+ */
+const(char)[] htmlSourceModColoredText(const(char)[] s)
+{
+	size_t skipuntil;
+	int inColor;
+	auto ap = appender!string;
+
+	foreach (i, c; s)
+	{
+		if (c == 1 || c == 3 || c == 4)
+		{
+			// not sure what 3 is
+			// it appears in player chat messages but not system messages
+			// 4 appears in rtd messages before the number of seconds
+			if (inColor)
+			{
+				ap ~= "</span>";
+				inColor--;
+			}
+			continue;
+		}
+
+		if (c == 7)
+		{
+			const(char)[] color = s[i+1..i+7]; // RRGGBB
+			uint r, g, b;
+			sscanf(color.ptr, "%02x%02x%02x", &r, &g, &b);
+
+			char[16] buf;
+			snprintf(buf.ptr, buf.length, "%02x%02x%02x", r, g, b);
+			ap ~= "<span style=\"color: #";
+			ap ~= buf.fromStringz;
+			ap ~= "\">";
+			skipuntil = i + 7;
+			inColor++;
+			continue;
+		}
+
+		if (c < ' ' && c != '\n') assert(0, "unknown control character");
+
+		if (i >= skipuntil)
+			switch (c)
+			{
+			case '&':
+				ap ~= "&amp;";
+				break;
+			case '"':
+				ap ~= "&quot;";
+				break;
+			case '<':
+				ap ~= "&lt;";
+				break;
+			case '>':
+				ap ~= "&gt;";
+				break;
+			default:
+				ap ~= c;
+				break;
+			}
+	}
+
+	while (inColor --> 0) ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+const(char)[] htmlPlayerName(Player* pl)
+{
+	auto ap = appender!string;
+
+	char[32] buf = void;
+	snprintf(buf.ptr, buf.length, "%u", pl.info.friendsID);
+	ap ~= "<span class=\"playername\" data-accountid=\"";
+	ap ~= buf.fromStringz;
+	ap ~= "\" data-mark=\"";
+	if (auto mark = pl.info.guid.fromStringz in g_marks)
+		ap ~= htmlspecialchars((*mark).name);
+	ap ~= "\" data-team=\"";
+	ap ~= playerToTeamName(pl);
+	ap ~= "\" dir=\"auto\" lang>";
+	ap ~= htmlspecialchars(pl.info.name.fromStringz);
+	ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
+}
+
+const(char)[] htmlUserText(const(char)[] s)
+{
+	auto ap = appender!string;
+
+	ap ~= "<span class=\"usertext\" dir=\"auto\" lang>";
+	ap ~= htmlspecialchars(s);
+	ap ~= "</span>";
+
+	ap ~= '\0';
+	return ap[][0..$-1];
 }

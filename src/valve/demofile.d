@@ -1,5 +1,7 @@
 module demoreader.valve.demofile;
 
+import core.stdc.stdio;
+
 // -----------------------------------------------------------------------------
 
 /*
@@ -59,7 +61,7 @@ struct demoheader_t
 	{
 		return playback_time is 0.0f && !playback_ticks && !playback_frames;
 	}
-	static assert(demoheader_t.init.isLive);
+	debug static assert(demoheader_t.init.isLive);
 
 	void check()
 	{
@@ -75,8 +77,6 @@ struct demoheader_t
 
 	void print()
 	{
-		import core.stdc.stdio;
-
 		printf("demofilestamp     %s\n", demofilestamp.ptr);
 		printf("demoprotocol      %d\n", demoprotocol);
 		printf("networkprotocol   %d\n", networkprotocol);
@@ -114,7 +114,6 @@ struct Vector
 		this.tupleof = __traits(parameters);
 	}
 
-	pragma(inline, true)
 	ref float opIndex(size_t i) return
 	{
 		return (i == 0) ? x : (i == 1) ? y : (i == 2) ? z : *cast(float*)null;
@@ -137,7 +136,6 @@ struct QAngle
 		this.tupleof = __traits(parameters);
 	}
 
-	pragma(inline, true)
 	ref float opIndex(size_t i) return
 	{
 		return (i == 0) ? x : (i == 1) ? y : (i == 2) ? z : *cast(float*)null;

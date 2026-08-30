@@ -4,21 +4,16 @@
  */
 module demoreader.entitystuff;
 
-import core.bitop;
 import core.stdc.stdio;
-import std.algorithm.mutation : swap;
 import std.array;
-import std.exception;
-import std.math;
-import std.string;
-import demoreader.globals;
-import demoreader.stringtable;
-import demoreader.valve.bitbuf;
-static import demoreader.player;
-import demoreader.entitystuff.decode;
-import demoreader.entitystuff.datatable;
 import std.container.dlist;
-import demoreader.player : Player2;
+import std.exception;
+import std.string;
+import demoreader.entitystuff.datatable;
+import demoreader.entitystuff.decode;
+import demoreader.globals;
+import demoreader.player : Player;
+import demoreader.valve.bitbuf;
 
 __gshared GameState gameState;
 
@@ -143,9 +138,10 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delta %d <%s>\n", entindex, classname);
@@ -168,9 +164,10 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   LeavePVS %d <%s>\n", entindex, classname);
@@ -192,9 +189,10 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 				if (TRACE1)
 				{
 					const(char)* classname = gameState.classes[classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   EnterPVS %d <%s>\n", entindex, classname);
@@ -227,9 +225,10 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delete %d <%s>\n", entindex, classname);
@@ -271,9 +270,10 @@ void parseSvcPacketEntities(bf_read buf, bool readWithoutParsing)
 					const(char)* classname = "?";
 					if (auto ent = oldSnapshot.entities[entindex])
 						classname = gameState.classes[ent.classid].name.ptr;
-					if (entindex >= 1 && entindex <= Player2.maxPlayers)
+					static if (0) // TODO
+					if (entindex >= 1 && entindex <= Player.maxPlayers)
 					{
-						if (Player2* pl = Player2.getByEntIndex(entindex))
+						if (Player* pl = Player.getByEntIndex(entindex))
 							classname = pl.ttyname;
 					}
 					printf("   Delete2 %d <%s>\n", entindex, classname);
@@ -506,7 +506,6 @@ final class Entity
 		this.inPvs = inPvs;
 	}
 
-	pragma(inline, true)
 	auto prop(T)(string name, T defval = T.init) inout
 	{
 		int i = gameState.classes[classid].propertyIndex(name);
@@ -562,7 +561,6 @@ final class Entity
 
 class IEntityProperty
 {
-	pragma(inline, true)
 	final ref inout(T) value(T)() inout
 	{
 		auto self = cast(inout(EntityProperty!T))this;
@@ -868,7 +866,6 @@ struct GameState
 		FlattenedProp[] flattenedProps;
 		int[string]     propertyIndexCache;
 
-		pragma(inline, true)
 		int propertyIndex(string name)
 		{
 			if (int* p = name in propertyIndexCache)
@@ -877,7 +874,6 @@ struct GameState
 				return searchPropertyIndex(name);
 		}
 
-		pragma(inline, false)
 		int searchPropertyIndex(string name)
 		{
 			foreach (i, prop; flattenedProps)

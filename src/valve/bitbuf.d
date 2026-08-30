@@ -1,21 +1,19 @@
 module demoreader.valve.bitbuf;
 
+import core.stdc.stdio;
 import std.array : uninitializedArray;
-import demoreader.valve.demofile : Vector, QAngle;
+import demoreader.util.byteprinter;
 import demoreader.valve.bitbufpure;
-debug import core.stdc.stdio : printf;
+import demoreader.valve.demofile : Vector;
 
 final class bf_read
 {
-	private
-	{
-		// The current buffer.
-		const(ubyte)* m_pData;
-		uint          m_nDataBits;
+	// The current buffer.
+	private const(ubyte)* m_pData;
+	private uint          m_nDataBits;
 
-		// Where we are in the buffer.
-		uint          m_iCurBit;
-	}
+	// Where we are in the buffer.
+	private uint          m_iCurBit;
 
 	this(const(void)[] data, uint nBits = -1)
 	{
@@ -91,7 +89,6 @@ final class bf_read
 		}
 		else
 		{
-			pragma(inline, true);
 			assert(nBits <= GetNumBitsLeft(), "bf_read overflow");
 		}
 	}
@@ -123,12 +120,8 @@ final class bf_read
 		return rv;
 	}
 
-	pragma(inline, false)
 	void PrintBytes(const(char)* name = null)
 	{
-		import core.stdc.stdio;
-		import demoreader.util.byteprinter;
-
 		if (name)
 			printf("%s: ", name);
 
@@ -520,20 +513,22 @@ private:
 // -----------------------------------------------------------------------------
 
 /// bit count to byte count (rounded up)
-pragma(inline, true)
 T BitByte(T)(T v)
 {
 	//return v + 7 >> 3; // not overflow-safe!!
 	return v / 8 + !!(v % 8);
 }
 
-static assert(BitByte(0) == 0);
-static assert(BitByte(1) == 1);
-static assert(BitByte(7) == 1);
-static assert(BitByte(8) == 1);
-static assert(BitByte(9) == 2);
-static assert(BitByte(uint.max) == 536870912);
-static assert(BitByte(ulong.max) == 2305843009213693952);
+unittest
+{
+	assert(BitByte(0) == 0);
+	assert(BitByte(1) == 1);
+	assert(BitByte(7) == 1);
+	assert(BitByte(8) == 1);
+	assert(BitByte(9) == 2);
+	assert(BitByte(uint.max) == 536870912);
+	assert(BitByte(ulong.max) == 2305843009213693952);
+}
 
 // -----------------------------------------------------------------------------
 
@@ -561,7 +556,6 @@ enum NORMAL_RESOLUTION      = 1.0f/NORMAL_DENOMINATOR;
 enum kMaxVarintBytes = 10;
 enum kMaxVarint32Bytes = 5;
 
-pragma(inline, true)
 uint GetBitForBitnum(uint bitNum)
 {
 	return 1 << (bitNum % 32); 
@@ -576,19 +570,16 @@ struct StringReadBuf(size_t capacity)
 	size_t length;
 	char[capacity] data = void;
 
-	pragma(inline, true)
 	void opOpAssign(string op)(char c) if (op == "~")
 	{
 		data.ptr[length++] = c;
 	}
 
-	pragma(inline, true)
 	char[] opSlice()
 	{
 		return data.ptr[0..length];
 	}
 
-	pragma(inline, true)
 	bool full()
 	{
 		return length == capacity;
